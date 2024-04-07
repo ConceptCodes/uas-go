@@ -72,7 +72,6 @@ This Golang microservice offers secure user authentication for your applications
 - [![MySQL][mysql-shield]][mysql-url]
 
 
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
