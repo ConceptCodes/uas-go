@@ -2,11 +2,11 @@ package constants
 
 const (
 	// Error codes
-	NotFound            = "RP-404"
-	BadRequest          = "RP-400"
-	Unauthorized        = "RP-401"
-	Forbidden           = "RP-403"
-	InternalServerError = "RP-500"
+	NotFound            = "UAS-404"
+	BadRequest          = "UAS-400"
+	Unauthorized        = "UAS-401"
+	Forbidden           = "UAS-403"
+	InternalServerError = "UAS-500"
 
 	// Endpoints
 	ApiPrefix           = "/api/v1"
@@ -23,9 +23,7 @@ const (
 	CreateEntityMessage  = "Created %s successfully."
 
 	// Queries
-	FindByIdQuery          = "id = ?"
-	FindByApiKeyQuery      = "api_key = ?"
-	FindByUserIdAndIdQuery = "user_id = ? AND id = ?"
+	FindByIdQuery = "id = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
