@@ -29,6 +29,7 @@ const (
 	TimeFormat          = "2006-01-02 15:04:05"
 	TraceIdHeader       = "x-trace-id"
 	AuthorizationHeader = "Authorization"
+	JwtHeader           = "x-jwt-token"
 	HealthCheckMessage  = "Performing healthcheck for service: %s"
 	DBTablePrefix       = "uas_%s"
 	LocalEnv            = "local"
@@ -36,7 +37,6 @@ const (
 	ProductionEnv       = "prod"
 	StartMessage        = "Starting API Service on PORT=%s | ENV=%s"
 	RequestIdCtxKey     = "request_id"
-	ApiKeyCtxKey        = "api_key"
 	UserIdCtxKey        = "user_id"
 
 	// Errors
