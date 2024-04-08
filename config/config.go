@@ -18,6 +18,9 @@ type Config struct {
 	DbName string `env:"DB_NAME" envDefault:"mysql_db"`
 
 	Env string `env:"ENV" envDefault:"development"`
+
+	JwtSecret string `env:"JWT_SECRET" envDefault:"jwt_secret"`
+	JwtExpire int    `env:"JWT_EXPIRE" envDefault:"24"`
 }
 
 var AppConfig = Config{}
