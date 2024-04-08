@@ -50,19 +50,28 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 		Name:   data.Name,
 	}
 
-	err = h.tenantRepo.Save(tenant)
+	err = h.tenantRepo.Create(tenant)
 
 	if err != nil {
-		message := fmt.Sprintf(constants.SaveEntityError, "Tenant")
+		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
+		helpers.SendErrorResponse(w, message, constants.InternalServerError, err)
+	}
+
+	hashed_secret, err := helpers.HashPassword(tenant_secret)
+
+	if err != nil {
+		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
 		helpers.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
 	res := &models.OnboardTenantResponse{
 		DepartmentID:   tenant.ID,
 		DepartmentName: tenant.Name,
-		TenantSecret:   tenant_secret,
+		TenantSecret:   hashed_secret,
 	}
 
-	w.Header().Set("Authorization", "Bearer "+helpers.GenerateToken(tenant.ID, tenant.Secret))
+	token := fmt.Sprintf("Bearer %s", helpers.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
+
+	w.Header().Set("Authorization", token)
 	helpers.SendSuccessResponse(w, "Tenant onboarded successfully", res)
 }

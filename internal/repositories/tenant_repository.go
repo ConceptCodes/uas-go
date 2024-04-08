@@ -9,7 +9,7 @@ import (
 
 type TenantRepository interface {
 	FindById(id string) (*models.TenantModel, error)
-	Save(user *models.TenantModel) error
+	Create(user *models.TenantModel) error
 	Delete(id string) error
 }
 
@@ -25,8 +25,8 @@ func (r *GormTenantRepository) FindById(id string) (*models.TenantModel, error) 
 	return &tenant, nil
 }
 
-func (r *GormTenantRepository) Save(tenant *models.TenantModel) error {
-	return r.db.Save(tenant).Error
+func (r *GormTenantRepository) Create(tenant *models.TenantModel) error {
+	return r.db.Create(tenant).Error
 }
 
 func (r *GormTenantRepository) Delete(id string) error {
