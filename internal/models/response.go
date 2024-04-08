@@ -15,3 +15,7 @@ type OnboardTenantResponse struct {
 	DepartmentName string `json:"department_name"`
 	TenantSecret   string `json:"tenant_secret"`
 }
+
+type JwtTokenResponse struct {
+	Token string `json:"token"`
+}
