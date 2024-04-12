@@ -17,6 +17,11 @@ type Config struct {
 	DbPass string `env:"DB_PASS" envDefault:"mysql_password"`
 	DbName string `env:"DB_NAME" envDefault:"mysql_db"`
 
+	RedisHost     string `env:"REDIS_HOST" envDefault:"redis_host"`
+	RedisPort     int    `env:"REDIS_PORT" envDefault:"6379"`
+	RedisPassword string `env:"REDIS_PASSWORD" envDefault:"redis_password"`
+	RedisDB       int    `env:"REDIS_DB" envDefault:"0"`
+
 	Env string `env:"ENV" envDefault:"development"`
 
 	JwtSecret string `env:"JWT_SECRET" envDefault:"jwt_secret"`
