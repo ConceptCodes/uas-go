@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 	"time"
+	"uas/internal/constants"
 
 	"github.com/rs/zerolog"
 )
@@ -20,7 +21,7 @@ func NewWithCtx(ctx context.Context) *zerolog.Logger {
 			Out: os.Stdout,
 			FormatTimestamp: func(i interface{}) string {
 				parse, _ := time.Parse(time.RFC3339, i.(string))
-				return parse.Format("2006-01-02 15:04:05")
+				return parse.Format(constants.TimeFormat)
 			},
 		}
 		logger := zerolog.New(output).With().Timestamp().Ctx(ctx).CallerWithSkipFrameCount(2).Logger()
@@ -35,7 +36,7 @@ func New() *zerolog.Logger {
 			Out: os.Stdout,
 			FormatTimestamp: func(i interface{}) string {
 				parse, _ := time.Parse(time.RFC3339, i.(string))
-				return parse.Format("2006-01-02 15:04:05")
+				return parse.Format(constants.TimeFormat)
 			},
 		}
 		logger := zerolog.New(output).With().Timestamp().CallerWithSkipFrameCount(2).Logger()
