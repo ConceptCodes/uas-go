@@ -64,7 +64,7 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 	tenant := &models.TenantModel{
 		ID:     data.DepartmentID,
 		Secret: tenant_secret,
-		Name:   data.Name,
+		Name:   data.DepartmentName,
 	}
 
 	err = h.tenantRepo.Create(tenant)
