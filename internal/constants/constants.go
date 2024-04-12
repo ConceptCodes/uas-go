@@ -17,7 +17,7 @@ const (
 	RegisterEndpoint      = ApiPrefix + "/user/register"
 
 	// Messages
-	EntityNotFound       = "%s with %s %d does not exist."
+	EntityNotFound       = "%s with %s %s does not exist."
 	GetEntityByIdMessage = "Found %s with id %d."
 	SaveEntityError      = "Error while saving %s."
 	SuccessMessage       = "You have successfully %s!"

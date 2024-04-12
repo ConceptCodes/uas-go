@@ -1,9 +1,9 @@
 package models
 
 type Request struct {
-	Id       string
-	TenantId string
-	User     UserModel
+	ID           string
+	DepartmentID string
+	User         UserModel
 }
 
 type OnboardTenantRequest struct {

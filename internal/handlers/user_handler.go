@@ -121,12 +121,12 @@ func (h *UserHandler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userRepo.FindByEmail(data.Email)
 
 	if err != nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "email: ", "User")
+		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
 	}
 
 	if user == nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "email: ", "User")
+		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
 	}
 
