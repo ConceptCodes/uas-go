@@ -8,34 +8,41 @@ import (
 	"uas/config"
 	"uas/internal/models"
 	repository "uas/internal/repositories"
-	"uas/pkg/logger"
 	mysql "uas/pkg/storage"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GenerateBasicAuthToken(tenantId string, tenantSecret string) string {
+type AuthHelper struct {
+	log zerolog.Logger
+}
+
+func NewAuthHelper(log zerolog.Logger) *AuthHelper {
+	return &AuthHelper{log: log}
+}
+
+func (h *AuthHelper) GenerateBasicAuthToken(tenantId string, tenantSecret string) string {
+	h.log.Debug().Msgf("Generating basic auth token for tenant: %s", tenantId)
 	return base64.StdEncoding.EncodeToString([]byte(tenantId + ":" + tenantSecret))
 }
 
-func ValidateBasicAuthToken(token string) (string, error) {
-	db, err := mysql.New()
-
-	log := logger.New()
+func (h *AuthHelper) ValidateBasicAuthToken(token string) (string, error) {
+	db, err := mysql.New(h.log)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error getting db instance")
+		h.log.Error().Err(err).Msg("Error getting db instance")
 	}
 
-	log.Debug().Msgf("Validating token: %s", token)
+	h.log.Debug().Msgf("Validating token: %s", token)
 
 	tenantRepo := repository.NewGormTenantRepository(db)
 
 	data, err := base64.StdEncoding.DecodeString(token)
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error decoding token")
+		h.log.Error().Err(err).Msg("Error decoding token")
 		return "", err
 	}
 
@@ -53,7 +60,7 @@ func ValidateBasicAuthToken(token string) (string, error) {
 		return "", err
 	}
 
-	valid := CheckPasswordHash(tenantSecret, tenant.Secret)
+	valid := h.CheckPasswordHash(tenantSecret, tenant.Secret)
 
 	if valid {
 		return tenantId, nil
@@ -62,7 +69,8 @@ func ValidateBasicAuthToken(token string) (string, error) {
 	return "", err
 }
 
-func GenerateJwtToken(user *models.UserModel, tenant string) (string, error) {
+func (h *AuthHelper) GenerateJwtToken(user *models.UserModel, tenant string) (string, error) {
+	h.log.Debug().Msgf("Generating JWT token for user: %s", user.Name)
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"name":          user.Name,
 		"email":         user.Email,
@@ -78,7 +86,8 @@ func GenerateJwtToken(user *models.UserModel, tenant string) (string, error) {
 	return token, nil
 }
 
-func ParseJwtToken(tokenString string) (jwt.MapClaims, error) {
+func (h *AuthHelper) ParseJwtToken(tokenString string) (jwt.MapClaims, error) {
+	h.log.Debug().Msgf("Parsing JWT token: %s", tokenString)
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return []byte(config.AppConfig.JwtSecret), nil
 	})
@@ -95,12 +104,14 @@ func ParseJwtToken(tokenString string) (jwt.MapClaims, error) {
 	return claims, nil
 }
 
-func HashPassword(password string) (string, error) {
+func (h *AuthHelper) HashPassword(password string) (string, error) {
+	h.log.Debug().Msg("Hashing password")
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
 }
 
-func CheckPasswordHash(password, hash string) bool {
+func (h *AuthHelper) CheckPasswordHash(password, hash string) bool {
+	h.log.Debug().Msg("Checking password hash")
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
 }

@@ -1,19 +1,26 @@
-package middlewares
+package middleware
 
 import (
-	"context"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 
 	"uas/internal/constants"
 	"uas/internal/helpers"
-	"uas/internal/models"
 )
 
-func TraceRequest(next http.Handler) http.Handler {
+type TraceRequestMiddleware struct {
+	log        zerolog.Logger
+	authHelper helpers.AuthHelper
+}
+
+func NewTraceRequestMiddleware(log zerolog.Logger, authHelper helpers.AuthHelper) *TraceRequestMiddleware {
+	return &TraceRequestMiddleware{log: log, authHelper: authHelper}
+}
+
+func (m *TraceRequestMiddleware) Start(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		requestId := r.Header.Get(constants.TraceIdHeader)
@@ -22,29 +29,23 @@ func TraceRequest(next http.Handler) http.Handler {
 			requestId = uuid.New().String()
 		}
 
-		model := &models.Request{
-			Id: requestId,
-		}
-
 		w.Header().Add(constants.TraceIdHeader, requestId)
 
-		authToken := r.Header.Get("Authorization")
+		authToken := r.Header.Get(constants.AuthorizationHeader)
 
 		if authToken != "" {
 			authToken = strings.Replace(authToken, "Bearer ", "", 1)
 
-			tenantId, err := helpers.ValidateBasicAuthToken(authToken)
+			tenantId, err := m.authHelper.ValidateBasicAuthToken(authToken)
 
 			if err != nil {
-				log.Error().Str("request_id", requestId).Msgf("Error: %s", err)
+				m.log.Error().Str(constants.RequestIdCtxKey, requestId).Msgf("Error: %s", err)
 			}
 
-			model.TenantId = tenantId
+			r = helpers.SetTenantId(r, tenantId)
 		}
 
-		ctx := context.WithValue(r.Context(), "ctx", model)
-
-		r = r.WithContext(ctx)
+		r = helpers.SetRequestId(r, requestId)
 
 		next.ServeHTTP(w, r)
 	})

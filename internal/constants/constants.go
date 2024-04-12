@@ -9,13 +9,15 @@ const (
 	InternalServerError = "UAS-500"
 
 	// Endpoints
-	ApiPrefix           = "/api/v1"
-	HealthCheckEndpoint = ApiPrefix + "/health/alive"
-	ReadinessEndpoint   = ApiPrefix + "/health/status"
-	OnboardUserEndpoint = ApiPrefix + "/onboard"
+	ApiPrefix             = "/api/v1"
+	HealthCheckEndpoint   = ApiPrefix + "/health/alive"
+	ReadinessEndpoint     = ApiPrefix + "/health/status"
+	OnboardTenantEndpoint = ApiPrefix + "/tenant"
+	LoginEndpoint         = ApiPrefix + "/user/login"
+	RegisterEndpoint      = ApiPrefix + "/user/register"
 
 	// Messages
-	EntityNotFound       = "%s with id %d does not exist."
+	EntityNotFound       = "%s with %s %d does not exist."
 	GetEntityByIdMessage = "Found %s with id %d."
 	SaveEntityError      = "Error while saving %s."
 	SuccessMessage       = "You have successfully %s!"
@@ -23,7 +25,8 @@ const (
 	CreateEntityMessage  = "Created %s successfully."
 
 	// Queries
-	FindByIdQuery = "id = ?"
+	FindByIdQuery    = "id = ?"
+	FindByEmailQuery = "email = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
@@ -36,8 +39,10 @@ const (
 	DevelopmentEnv      = "development"
 	ProductionEnv       = "prod"
 	StartMessage        = "Starting API Service on PORT=%s | ENV=%s"
-	RequestIdCtxKey     = "request_id"
-	UserIdCtxKey        = "user_id"
+
+	RequestIdCtxKey = "request_id"
+	UserIdCtxKey    = "user_id"
+	TenantIdCtxKey  = "tenant_id"
 
 	// Errors
 	HealthCheckError = "Error while performing health-check for service: %s"

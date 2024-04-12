@@ -7,12 +7,12 @@ type Request struct {
 }
 
 type OnboardTenantRequest struct {
-	Name         string `json:"name"`
-	DepartmentID string `json:"department_id"`
+	Name         string `json:"name" validate:"required,noSQLKeywords"`
+	DepartmentID string `json:"department_id" validate:"required,noSQLKeywords"`
 }
 
-type CredentialsRegisterRequest struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+type CredentialsRequest struct {
+	Name     string `json:"name" validate:"noSQLKeywords"`
+	Email    string `json:"email" validate:"email,required,noSQLKeywords"`
+	Password string `json:"password" validate:"required,noSQLKeywords"`
 }

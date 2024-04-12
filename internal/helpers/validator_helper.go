@@ -6,16 +6,25 @@ import (
 	"strings"
 
 	"uas/internal/constants"
-	"uas/pkg/logger"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/rs/zerolog"
 )
 
 var validate *validator.Validate
 
+type ValidatorHelper struct {
+	log            zerolog.Logger
+	responseHelper ResponseHelper
+}
+
 func init() {
 	validate = validator.New()
 	validate.RegisterValidation("noSQLKeywords", noSQLKeywords)
+}
+
+func NewValidatorHelper(log zerolog.Logger, responseHelper ResponseHelper) *ValidatorHelper {
+	return &ValidatorHelper{log: log, responseHelper: responseHelper}
 }
 
 func noSQLKeywords(fl validator.FieldLevel) bool {
@@ -30,9 +39,8 @@ func noSQLKeywords(fl validator.FieldLevel) bool {
 	return true
 }
 
-func ValidateStruct(w http.ResponseWriter, s interface{}) {
-	log := logger.New()
-	log.Debug().Interface("struct", s).Msg("Validating Request Data")
+func (v *ValidatorHelper) ValidateStruct(w http.ResponseWriter, s interface{}) {
+	v.log.Debug().Interface("struct", s).Msg("Validating Request Data")
 
 	err := validate.Struct(s)
 	if err != nil {
@@ -40,7 +48,6 @@ func ValidateStruct(w http.ResponseWriter, s interface{}) {
 		for _, err := range err.(validator.ValidationErrors) {
 			errMsgs = append(errMsgs, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", err.Field(), err.Tag()))
 		}
-		SendErrorResponse(w, strings.Join(errMsgs, ", "), constants.BadRequest, err)
-		return
+		v.responseHelper.SendErrorResponse(w, strings.Join(errMsgs, ", "), constants.BadRequest, err)
 	}
 }

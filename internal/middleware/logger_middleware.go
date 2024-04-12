@@ -1,16 +1,25 @@
-package middlewares
+package middleware
 
 import (
 	"bytes"
 	"net/http"
 	"time"
-	"uas/pkg/logger"
+
+	"github.com/rs/zerolog"
 )
+
+type LoggerMiddleware struct {
+	log zerolog.Logger
+}
 
 type responseWriter struct {
 	http.ResponseWriter
 	body       *bytes.Buffer
 	statusCode int
+}
+
+func NewLoggerMiddleware(log zerolog.Logger) *LoggerMiddleware {
+	return &LoggerMiddleware{log: log}
 }
 
 func (rw *responseWriter) Write(b []byte) (int, error) {
@@ -23,15 +32,14 @@ func (lrw *responseWriter) WriteHeader(code int) {
 	lrw.ResponseWriter.WriteHeader(code)
 }
 
-func RequestLogger(next http.Handler) http.Handler {
+func (m *LoggerMiddleware) Start(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		log := logger.NewWithCtx(r.Context())
 		rw := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}}
 
 		start := time.Now()
 
-		log.
+		m.log.
 			Info().
 			Str("method", r.Method).
 			Str("url", r.URL.RequestURI()).

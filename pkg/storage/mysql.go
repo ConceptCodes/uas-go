@@ -11,22 +11,16 @@ import (
 
 	"uas/config"
 	"uas/internal/constants"
-	_logger "uas/pkg/logger"
 )
 
 var (
 	db   *gorm.DB
 	once sync.Once
-	log  *zerolog.Logger
 )
 
-func init() {
-	log = _logger.New()
-}
-
-func New() (*gorm.DB, error) {
+func New(l zerolog.Logger) (*gorm.DB, error) {
 	var err error
-	log.Debug().Msg("Connecting to MySQL")
+	l.Debug().Msg("Connecting to MySQL")
 
 	once.Do(func() {
 		db, err = gorm.Open(mysql.New(mysql.Config{
@@ -39,7 +33,7 @@ func New() (*gorm.DB, error) {
 			),
 		}), &gorm.Config{
 			Logger: logger.New(
-				log,
+				&l,
 				logger.Config{
 					LogLevel:             logger.Info,
 					Colorful:             config.AppConfig.Env == constants.LocalEnv,
@@ -52,32 +46,32 @@ func New() (*gorm.DB, error) {
 	return db, err
 }
 
-func Close() {
+func Close(l zerolog.Logger) {
 	sqlDB, _ := db.DB()
 
 	err := sqlDB.Close()
 
 	if err != nil {
-		log.Error().Err(err).Msg("Error closing db")
+		l.Error().Err(err).Msg("Error closing db")
 		return
 	}
 }
 
-func HealthCheck() bool {
-	log.Debug().Msgf(constants.HealthCheckMessage, "mysql")
+func HealthCheck(l zerolog.Logger) bool {
+	l.Debug().Msgf(constants.HealthCheckMessage, "mysql")
 
 	sqlDB, _ := db.DB()
 
 	err := sqlDB.Ping()
 
 	if err != nil {
-		log.
+		l.
 			Error().
 			Err(err).
 			Msgf(constants.HealthCheckError, "mysql")
 		return false
 	}
 
-	log.Info().Msg("MySQL is up")
+	l.Info().Msg("MySQL is up")
 	return true
 }

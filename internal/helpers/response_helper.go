@@ -5,10 +5,19 @@ import (
 	"net/http"
 	"uas/internal/constants"
 	"uas/internal/models"
-	"uas/pkg/logger"
+
+	"github.com/rs/zerolog"
 )
 
-func SendSuccessResponse(w http.ResponseWriter, message string, data interface{}) {
+type ResponseHelper struct {
+	log zerolog.Logger
+}
+
+func NewResponseHelper(log zerolog.Logger) *ResponseHelper {
+	return &ResponseHelper{log: log}
+}
+
+func (r *ResponseHelper) SendSuccessResponse(w http.ResponseWriter, message string, data interface{}) {
 	response := models.SuccessResponse{
 		Message: message,
 		Data:    data,
@@ -16,11 +25,11 @@ func SendSuccessResponse(w http.ResponseWriter, message string, data interface{}
 
 	json.NewEncoder(w).Encode(response)
 	w.WriteHeader(http.StatusOK)
+	return
 }
 
-func SendErrorResponse(w http.ResponseWriter, message string, errorCode string, err error) {
-	log := logger.New()
-	log.Error().Err(err).Msg(message)
+func (r *ResponseHelper) SendErrorResponse(w http.ResponseWriter, message string, errorCode string, err error) {
+	r.log.Error().Err(err).Msg(message)
 
 	response := models.ErrorResponse{
 		Message:   message,
@@ -42,4 +51,5 @@ func SendErrorResponse(w http.ResponseWriter, message string, errorCode string, 
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	return
 }

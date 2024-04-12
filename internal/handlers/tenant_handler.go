@@ -10,14 +10,31 @@ import (
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
 )
 
 type TenantHandler struct {
-	tenantRepo repository.TenantRepository
+	tenantRepo      repository.TenantRepository
+	logger          zerolog.Logger
+	authHelper      helpers.AuthHelper
+	responseHelper  helpers.ResponseHelper
+	validatorHelper helpers.ValidatorHelper
 }
 
-func NewTenantHandler(tenantRepo repository.TenantRepository) *TenantHandler {
-	return &TenantHandler{tenantRepo: tenantRepo}
+func NewTenantHandler(
+		tenantRepo repository.TenantRepository, 
+		logger zerolog.Logger, 
+		authHelper helpers.AuthHelper, 
+		responseHelper helpers.ResponseHelper,
+		validatorHelper helpers.ValidatorHelper,
+	) *TenantHandler {
+	return &TenantHandler{
+		tenantRepo:     tenantRepo,
+		logger:         logger,
+		authHelper:     authHelper,
+		responseHelper: responseHelper,
+		validatorHelper: validatorHelper,
+	}
 }
 
 // OnboardTenantHandler godoc
@@ -37,10 +54,10 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 	err := json.NewDecoder(r.Body).Decode(&data)
 
 	if err != nil {
-		helpers.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
 	}
 
-	helpers.ValidateStruct(w, &data)
+	h.validatorHelper.ValidateStruct(w, &data)
 
 	tenant_secret := uuid.New().String()
 
@@ -54,14 +71,14 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
-		helpers.SendErrorResponse(w, message, constants.InternalServerError, err)
+		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
-	hashed_secret, err := helpers.HashPassword(tenant_secret)
+	hashed_secret, err := h.authHelper.HashPassword(tenant_secret)
 
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
-		helpers.SendErrorResponse(w, message, constants.InternalServerError, err)
+		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
 	res := &models.OnboardTenantResponse{
@@ -70,8 +87,8 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 		TenantSecret:   hashed_secret,
 	}
 
-	token := fmt.Sprintf("Bearer %s", helpers.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
+	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
 
 	w.Header().Set("Authorization", token)
-	helpers.SendSuccessResponse(w, "Tenant onboarded successfully", res)
+	h.responseHelper.SendSuccessResponse(w, "Tenant onboarded successfully", res)
 }
