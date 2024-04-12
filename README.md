@@ -138,17 +138,17 @@ curl -X GET \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Tenant Name",
-    "department_id": "department_id"
+    "department_name": "Department Name",
+    "department_id": "c4c2fab4-0a4f-4f8d-924c-611aa4af2fe2"
   }' \
   https://localhost:8080/api/v1/tenants
 ```
 ```json
 {
-  "id": 1,
-  "department_name": "Tenant Name",
-  "department_id": "department_id",
-  "service_secret": "service_secret"
+  "id": "",
+  "department_name": "Department Name",
+  "department_id": "826dad3c-ae6d-4603-8190-730cad295035",
+  "service_secret": "s2q8%:{ywQOe:NPv_5yr/.*Z"
 }
 ```
 
@@ -163,12 +163,12 @@ curl -X POST \
     "email": "user@example.com",
     "password": "strong_password"
   }' \
-  https://localhost:8080/api/v1/users
+  https://localhost:8080/api/v1/users/credential/register
 ```
 ```json
 {
-  "id": 1,
-  "email": ""
+  "id": "",
+  "email": "user@example.com"
 }
 ```
 
@@ -183,7 +183,7 @@ curl -X POST \
     "email": "user@example.com",
     "password": "strong_password"
   }' \
-  https://localhost:8080/api/v1/login
+  https://localhost:8080/api/v1/users/credential/login
 ```
 ```json
 {
@@ -199,14 +199,14 @@ curl -X POST \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "token": "eyJhbGci"
+    "token": "eyJhbGciNiIsInR5C..."
   }' \
   https://localhost:8080/api/v1/refresh
 ```
 
 ```json
 {
-  "token": "eyJhbGci" (JWT token string)
+  "token": "eyJhbGciNiIsInR6D..." (JWT token string)
 }
 ```
 

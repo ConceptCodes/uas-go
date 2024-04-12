@@ -9,12 +9,12 @@ const (
 	InternalServerError = "UAS-500"
 
 	// Endpoints
-	ApiPrefix             = "/api/v1"
-	HealthCheckEndpoint   = ApiPrefix + "/health/alive"
-	ReadinessEndpoint     = ApiPrefix + "/health/status"
-	OnboardTenantEndpoint = ApiPrefix + "/tenant"
-	LoginEndpoint         = ApiPrefix + "/user/login"
-	RegisterEndpoint      = ApiPrefix + "/user/register"
+	ApiPrefix                   = "/api/v1"
+	HealthCheckEndpoint         = ApiPrefix + "/health/alive"
+	ReadinessEndpoint           = ApiPrefix + "/health/status"
+	OnboardTenantEndpoint       = ApiPrefix + "/tenants"
+	CredentialsLoginEndpoint    = ApiPrefix + "/users/credential/login"
+	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
 
 	// Messages
 	EntityNotFound       = "%s with %s %s does not exist."
