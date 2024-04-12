@@ -26,6 +26,9 @@ type Config struct {
 
 	JwtSecret string `env:"JWT_SECRET" envDefault:"jwt_secret"`
 	JwtExpire int    `env:"JWT_EXPIRE" envDefault:"24"`
+
+	RateLimitCapacity int `env:"RATE_LIMIT_CAPACITY" envDefault:"100"`
+	TimeUnitInSeconds int `env:"TIME_UNIT_IN_SECONDS" envDefault:"60"`
 }
 
 var AppConfig = Config{}

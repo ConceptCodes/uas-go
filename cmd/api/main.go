@@ -13,7 +13,8 @@ import (
 	"uas/internal/middleware"
 	repository "uas/internal/repositories"
 	"uas/pkg/logger"
-	mysql "uas/pkg/storage"
+	"uas/pkg/storage/mysql"
+	"uas/pkg/storage/redis"
 
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
@@ -40,6 +41,8 @@ func Run() {
 		log.Fatal().Err(err).Msg("Error while connecting to database")
 	}
 
+	redisClient := redis.New(*log)
+
 	// Initialize repositories
 	tenantRepo := repository.NewGormTenantRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
@@ -58,13 +61,16 @@ func Run() {
 	requestLogger := middleware.NewLoggerMiddleware(*log)
 	router.Use(requestLogger.Start)
 
+	rateLimitMiddleware := middleware.NewRateLimitRequestMiddleware(*log, *redisClient)
+	router.Use(rateLimitMiddleware.Start)
+
 	router.Use(middleware.ContentTypeJSON)
 
 	// Add routes
 	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods("POST")
 
-	router.HandleFunc(constants.RegisterEndpoint, userHandler.RegisterUserHandler).Methods("POST")
-	router.HandleFunc(constants.LoginEndpoint, userHandler.LoginUserHandler).Methods("POST")
+	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.RegisterUserHandler).Methods("POST")
+	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.LoginUserHandler).Methods("POST")
 
 	// Initialize server
 	port := fmt.Sprintf("%d", config.AppConfig.Port)

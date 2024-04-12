@@ -8,7 +8,7 @@ import (
 	"uas/config"
 	"uas/internal/models"
 	repository "uas/internal/repositories"
-	mysql "uas/pkg/storage"
+	"uas/pkg/storage/mysql"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/rs/zerolog"
