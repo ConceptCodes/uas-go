@@ -10,10 +10,10 @@ import (
 )
 
 type ResponseHelper struct {
-	log zerolog.Logger
+	log *zerolog.Logger
 }
 
-func NewResponseHelper(log zerolog.Logger) *ResponseHelper {
+func NewResponseHelper(log *zerolog.Logger) *ResponseHelper {
 	return &ResponseHelper{log: log}
 }
 

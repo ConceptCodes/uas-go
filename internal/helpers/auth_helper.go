@@ -16,10 +16,10 @@ import (
 )
 
 type AuthHelper struct {
-	log zerolog.Logger
+	log *zerolog.Logger
 }
 
-func NewAuthHelper(log zerolog.Logger) *AuthHelper {
+func NewAuthHelper(log *zerolog.Logger) *AuthHelper {
 	return &AuthHelper{log: log}
 }
 

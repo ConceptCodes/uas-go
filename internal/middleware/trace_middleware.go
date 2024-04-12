@@ -12,11 +12,11 @@ import (
 )
 
 type TraceRequestMiddleware struct {
-	log        zerolog.Logger
-	authHelper helpers.AuthHelper
+	log        *zerolog.Logger
+	authHelper *helpers.AuthHelper
 }
 
-func NewTraceRequestMiddleware(log zerolog.Logger, authHelper helpers.AuthHelper) *TraceRequestMiddleware {
+func NewTraceRequestMiddleware(log *zerolog.Logger, authHelper *helpers.AuthHelper) *TraceRequestMiddleware {
 	return &TraceRequestMiddleware{log: log, authHelper: authHelper}
 }
 

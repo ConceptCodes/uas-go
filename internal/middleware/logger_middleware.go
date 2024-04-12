@@ -9,7 +9,7 @@ import (
 )
 
 type LoggerMiddleware struct {
-	log zerolog.Logger
+	log *zerolog.Logger
 }
 
 type responseWriter struct {
@@ -18,7 +18,7 @@ type responseWriter struct {
 	statusCode int
 }
 
-func NewLoggerMiddleware(log zerolog.Logger) *LoggerMiddleware {
+func NewLoggerMiddleware(log *zerolog.Logger) *LoggerMiddleware {
 	return &LoggerMiddleware{log: log}
 }
 

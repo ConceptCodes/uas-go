@@ -15,18 +15,18 @@ import (
 
 type UserHandler struct {
 	userRepo        repository.UserRepository
-	log             zerolog.Logger
-	authHelper      helpers.AuthHelper
-	responseHelper  helpers.ResponseHelper
-	validatorHelper helpers.ValidatorHelper
+	log             *zerolog.Logger
+	authHelper      *helpers.AuthHelper
+	responseHelper  *helpers.ResponseHelper
+	validatorHelper *helpers.ValidatorHelper
 }
 
 func NewUserHandler(
 	userRepo repository.UserRepository,
-	log zerolog.Logger,
-	authHelper helpers.AuthHelper,
-	responseHelper helpers.ResponseHelper,
-	validatorHelper helpers.ValidatorHelper,
+	log *zerolog.Logger,
+	authHelper *helpers.AuthHelper,
+	responseHelper *helpers.ResponseHelper,
+	validatorHelper *helpers.ValidatorHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:        userRepo,

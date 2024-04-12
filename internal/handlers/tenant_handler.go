@@ -15,24 +15,24 @@ import (
 
 type TenantHandler struct {
 	tenantRepo      repository.TenantRepository
-	logger          zerolog.Logger
-	authHelper      helpers.AuthHelper
-	responseHelper  helpers.ResponseHelper
-	validatorHelper helpers.ValidatorHelper
+	logger          *zerolog.Logger
+	authHelper      *helpers.AuthHelper
+	responseHelper  *helpers.ResponseHelper
+	validatorHelper *helpers.ValidatorHelper
 }
 
 func NewTenantHandler(
-		tenantRepo repository.TenantRepository, 
-		logger zerolog.Logger, 
-		authHelper helpers.AuthHelper, 
-		responseHelper helpers.ResponseHelper,
-		validatorHelper helpers.ValidatorHelper,
-	) *TenantHandler {
+	tenantRepo repository.TenantRepository,
+	logger *zerolog.Logger,
+	authHelper *helpers.AuthHelper,
+	responseHelper *helpers.ResponseHelper,
+	validatorHelper *helpers.ValidatorHelper,
+) *TenantHandler {
 	return &TenantHandler{
-		tenantRepo:     tenantRepo,
-		logger:         logger,
-		authHelper:     authHelper,
-		responseHelper: responseHelper,
+		tenantRepo:      tenantRepo,
+		logger:          logger,
+		authHelper:      authHelper,
+		responseHelper:  responseHelper,
 		validatorHelper: validatorHelper,
 	}
 }

@@ -14,8 +14,8 @@ import (
 var validate *validator.Validate
 
 type ValidatorHelper struct {
-	log            zerolog.Logger
-	responseHelper ResponseHelper
+	log            *zerolog.Logger
+	responseHelper *ResponseHelper
 }
 
 func init() {
@@ -23,7 +23,7 @@ func init() {
 	validate.RegisterValidation("noSQLKeywords", noSQLKeywords)
 }
 
-func NewValidatorHelper(log zerolog.Logger, responseHelper ResponseHelper) *ValidatorHelper {
+func NewValidatorHelper(log *zerolog.Logger, responseHelper *ResponseHelper) *ValidatorHelper {
 	return &ValidatorHelper{log: log, responseHelper: responseHelper}
 }
 

@@ -14,11 +14,11 @@ import (
 )
 
 type RateLimitRequestMiddleware struct {
-	log zerolog.Logger
-	rdb redis.RedisClient
+	log *zerolog.Logger
+	rdb *redis.RedisClient
 }
 
-func NewRateLimitRequestMiddleware(log zerolog.Logger, rdb redis.RedisClient) *RateLimitRequestMiddleware {
+func NewRateLimitRequestMiddleware(log *zerolog.Logger, rdb *redis.RedisClient) *RateLimitRequestMiddleware {
 	return &RateLimitRequestMiddleware{log: log, rdb: rdb}
 }
 
