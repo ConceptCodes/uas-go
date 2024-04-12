@@ -48,8 +48,8 @@ func NewUserHandler(
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /users [post]
-func (h *UserHandler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-	var data models.CredentialsRequest
+func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *http.Request) {
+	var data models.CredentialsRegisterRequest
 
 	err := json.NewDecoder(r.Body).Decode(&data)
 
@@ -107,8 +107,8 @@ func (h *UserHandler) RegisterUserHandler(w http.ResponseWriter, r *http.Request
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /users/login [post]
-func (h *UserHandler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
-	var data models.CredentialsRequest
+func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http.Request) {
+	var data models.CredentialsLoginRequest
 
 	err := json.NewDecoder(r.Body).Decode(&data)
 
