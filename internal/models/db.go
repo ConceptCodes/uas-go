@@ -17,3 +17,9 @@ type UserModel struct {
 	Password    string `gorm:"type:varchar(100);unique_index"`
 	PhoneNumber string `gorm:"type:varchar(14);unique_index"`
 }
+
+type PasswordResetModel struct {
+	gorm.Model
+	UserID string `gorm:"type:varchar(36);unique_index"`
+	Token  string `gorm:"type:varchar(36);unique_index"`
+}

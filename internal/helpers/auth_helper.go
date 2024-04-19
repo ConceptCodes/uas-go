@@ -6,6 +6,7 @@ import (
 	"strings"
 	repository "uas/internal/repositories"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -71,4 +72,11 @@ func (h *AuthHelper) CheckPasswordHash(password, hash string) bool {
 	}
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
+}
+
+func (h *AuthHelper) GenerateResetPasswordToken() string {
+	a := uuid.New().String()
+	b := uuid.New().String()
+
+	return h.GenerateBasicAuthToken(a, b)
 }

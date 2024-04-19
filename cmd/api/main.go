@@ -12,6 +12,7 @@ import (
 	"uas/internal/helpers"
 	"uas/internal/middleware"
 	repository "uas/internal/repositories"
+	"uas/pkg/email"
 	"uas/pkg/logger"
 	"uas/pkg/storage/mysql"
 	"uas/pkg/storage/redis"
@@ -34,6 +35,7 @@ func Run() {
 		log.Fatal().Err(err).Msg("Error while connecting to database")
 	}
 
+	emailClient := email.New()
 	redisClient := redis.New(*log)
 
 	tenantRepo := repository.NewGormTenantRepository(db)
@@ -42,9 +44,10 @@ func Run() {
 	authHelper := helpers.NewAuthHelper(log, tenantRepo)
 	responseHelper := helpers.NewResponseHelper(log)
 	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
+	emailHelper := helpers.NewEmailHelper(log, emailClient)
 
 	tenantHandler := handlers.NewTenantHandler(tenantRepo, log, authHelper, responseHelper, validatorHelper)
-	userHandler := handlers.NewUserHandler(userRepo, log, authHelper, responseHelper, validatorHelper)
+	userHandler := handlers.NewUserHandler(userRepo, log, authHelper, responseHelper, validatorHelper, emailHelper)
 
 	router := mux.NewRouter()
 
@@ -60,8 +63,14 @@ func Run() {
 
 	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods("POST")
 
+	// Credentials router
 	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods("POST")
 	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods("POST")
+	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods("POST")
+
+	// Otp router
+
+	// Profile
 
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{

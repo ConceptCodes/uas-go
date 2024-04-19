@@ -16,11 +16,6 @@ type OnboardTenantResponse struct {
 	TenantSecret   string `json:"tenant_secret"`
 }
 
-type JwtTokenResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
 type HealthCheckResponse struct {
 	Service string `json:"service"`
 	Status  bool   `json:"status"`

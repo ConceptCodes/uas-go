@@ -36,6 +36,9 @@ type Config struct {
 
 	RateLimitCapacity int `env:"RATE_LIMIT_CAPACITY" envDefault:"100"`
 	TimeUnitInSeconds int `env:"TIME_UNIT_IN_SECONDS" envDefault:"60"`
+
+	CookieBlockKey string `env:COOKIE_BLOCK_KEY" envDefault:"cookie_block_key"`
+	CookieHashKey  string `env:COOKIE_HASH_KEY" envDefault:"cookie_hash_key"`
 }
 
 var AppConfig = Config{}
