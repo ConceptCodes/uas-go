@@ -24,6 +24,10 @@ type Config struct {
 
 	Env string `env:"ENV" envDefault:"development"`
 
+	ResendApiKey      string `env:"RESEND_API_KEY" envDefault:"resend"`
+	EmailFrom         string `env:"EMAIL_FROM" envDefault:"example@gmail.com"`
+	ResendEmailDomain string `env:"RESEND_EMAIL_DOMAIN" envDefault:"resend.dev"`
+
 	RefreshJwtSecret string `env:"REFRESH_JWT_SECRET" envDefault:"refresh_jwt_secret"`
 	RefreshJwtExpire int    `env:"REFRESH_JWT_EXPIRE" envDefault:"24"`
 

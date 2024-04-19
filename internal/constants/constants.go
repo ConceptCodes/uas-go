@@ -15,6 +15,7 @@ const (
 	OnboardTenantEndpoint       = ApiPrefix + "/tenants"
 	CredentialsLoginEndpoint    = ApiPrefix + "/users/credential/login"
 	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
+	CredentialsForgotEndpoint   = ApiPrefix + "/users/credential/reset-password"
 
 	// Messages
 	EntityNotFound       = "%s with %s %s does not exist."
@@ -33,17 +34,25 @@ const (
 	TraceIdHeader       = "x-trace-id"
 	AuthorizationHeader = "Authorization"
 	JwtHeader           = "x-jwt-token"
-	HealthCheckMessage  = "Performing healthcheck for service: %s"
+	HealthCheckMessage  = "Performing health-check for service: %s"
 	DBTablePrefix       = "uas_%s"
 	LocalEnv            = "local"
 	DevelopmentEnv      = "development"
 	ProductionEnv       = "prod"
 	StartMessage        = "Starting API Service on PORT=%s | ENV=%s"
 
+	// Email
+	EmailTemplatePath   = "%s/web/emails/%s.html"
+	EmailFrom           = "Example <team@%s>"
+	WelcomeEmailSubject = "Welcome to Example!"
+
 	RequestIdCtxKey = "request_id"
 	UserIdCtxKey    = "user_id"
 	TenantIdCtxKey  = "tenant_id"
 
 	// Errors
-	HealthCheckError = "Error while performing health-check for service: %s"
+	HealthCheckError         = "Error while performing health-check for service: %s"
+	InvalidTemplatePathError = "invalid template path: %s"
+	TokenExpiredError        = "Token expired"
+	TokenInvalidError        = "Token invalid"
 )

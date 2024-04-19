@@ -19,6 +19,7 @@ type UserHandler struct {
 	authHelper      *helpers.AuthHelper
 	responseHelper  *helpers.ResponseHelper
 	validatorHelper *helpers.ValidatorHelper
+	emailHelper     *helpers.EmailHelper
 }
 
 func NewUserHandler(
@@ -27,6 +28,7 @@ func NewUserHandler(
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
 	validatorHelper *helpers.ValidatorHelper,
+	emailHelper *helpers.EmailHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:        userRepo,
@@ -34,6 +36,7 @@ func NewUserHandler(
 		authHelper:      authHelper,
 		responseHelper:  responseHelper,
 		validatorHelper: validatorHelper,
+		emailHelper:     emailHelper,
 	}
 }
 
@@ -47,7 +50,7 @@ func NewUserHandler(
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /users [post]
+// @Router /users/credentials [post]
 func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *http.Request) {
 	var data models.CredentialsRegisterRequest
 
@@ -101,7 +104,7 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /users/login [post]
+// @Router /users/credentials/login [post]
 func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	var data models.CredentialsLoginRequest
 
@@ -152,4 +155,19 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "User logged in successfully", res)
+}
+
+
+// ForgotPasswordHandler godoc
+// @Summary Forgot Password
+// @Description Forgot Password
+// @Tags User
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /users/credentials/forgot-password [post]
+func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r *http.Request) {
 }
