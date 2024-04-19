@@ -17,5 +17,17 @@ type OnboardTenantResponse struct {
 }
 
 type JwtTokenResponse struct {
-	Token string `json:"token"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type HealthCheckResponse struct {
+	Service string `json:"service"`
+	Status  bool   `json:"status"`
+}
+
+type RegisterUserResponse struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
 }
