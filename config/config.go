@@ -24,8 +24,11 @@ type Config struct {
 
 	Env string `env:"ENV" envDefault:"development"`
 
-	JwtSecret string `env:"JWT_SECRET" envDefault:"jwt_secret"`
-	JwtExpire int    `env:"JWT_EXPIRE" envDefault:"24"`
+	RefreshJwtSecret string `env:"REFRESH_JWT_SECRET" envDefault:"refresh_jwt_secret"`
+	RefreshJwtExpire int    `env:"REFRESH_JWT_EXPIRE" envDefault:"24"`
+
+	AccessJwtSecret string `env:"ACCESS_JWT_SECRET" envDefault:"access_jwt_secret"`
+	AccessJwtExpire int    `env:"ACCESS_JWT_EXPIRE" envDefault:"15"`
 
 	RateLimitCapacity int `env:"RATE_LIMIT_CAPACITY" envDefault:"100"`
 	TimeUnitInSeconds int `env:"TIME_UNIT_IN_SECONDS" envDefault:"60"`

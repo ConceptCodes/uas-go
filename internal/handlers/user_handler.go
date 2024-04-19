@@ -69,28 +69,23 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 
 	user_id := uuid.New().String()
 
-	user := &models.UserModel{
+	user := models.UserModel{
 		ID:       user_id,
 		Name:     data.Name,
 		Email:    data.Email,
 		Password: password_hash,
 	}
 
-	err = h.userRepo.Create(user)
+	err = h.userRepo.Create(&user)
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
 	}
 
-	token, err := h.authHelper.GenerateJwtToken(user, "1")
-
-	if err != nil {
-		h.log.Error().Err(err).Msg("Error generating token")
-		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
-	}
-
-	res := &models.JwtTokenResponse{
-		Token: token,
+	res := &models.RegisterUserResponse{
+		UserID: user_id,
+		Name:   data.Name,
+		Email:  data.Email,
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "User registered successfully", res)
@@ -137,14 +132,23 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	}
 
 	tenantId := helpers.GetTenantId(r)
-	token, err := h.authHelper.GenerateJwtToken(user, tenantId)
+	access_token, err := h.authHelper.GenerateAccessJwtToken(user, tenantId)
 
 	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "Error generating token", constants.InternalServerError, err)
+		h.log.Error().Err(err).Msg("Error generating access token")
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+	}
+
+	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, tenantId)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error generating refresh token")
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
 	}
 
 	res := &models.JwtTokenResponse{
-		Token: token,
+		AccessToken:  access_token,
+		RefreshToken: refresh_token,
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "User logged in successfully", res)
