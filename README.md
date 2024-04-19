@@ -57,7 +57,7 @@ This Golang microservice offers secure user authentication for your applications
 
 ### Features
 
-- User Registration with Email and Password
+- User Registration/Login with Email and Password
 - Email/Password Login
 - Secure Password Hashing (bcrypt)
 - JSON Web Token (JWT) based Authentication
@@ -161,13 +161,15 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
     "email": "user@example.com",
-    "password": "strong_password"
+    "password": "strong_password",
+    "name": "John Smith"
   }' \
   https://localhost:8080/api/v1/users/credential/register
 ```
 ```json
 {
   "id": "",
+  "name": "John Smith",
   "email": "user@example.com"
 }
 ```
@@ -187,28 +189,13 @@ curl -X POST \
 ```
 ```json
 {
-  "token": "eyJhbGciNiIsInR5C..." (JWT token string)
+  "access_token": "eyJhbGciNiIsInR5C..." (JWT token string),
+  "refresh_token": "eyJhbGciNiIsInR4C..." 
 }
 ```
 
 ---
 
-**Refresh Token**
-
-```sh
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "token": "eyJhbGciNiIsInR5C..."
-  }' \
-  https://localhost:8080/api/v1/refresh
-```
-
-```json
-{
-  "token": "eyJhbGciNiIsInR6D..." (JWT token string)
-}
-```
 
 ### Security Considerations
 
@@ -220,7 +207,7 @@ curl -X POST \
 ## Roadmap
 - [ ] Add support for email verification
 - [ ] Add support for password reset
-- [ ] Add support for rate limiting
+- [x] Add support for rate limiting
 - [ ] Add support for OTP login
 - [ ] Add support for magic link login
 - [ ] Add support for RBAC
