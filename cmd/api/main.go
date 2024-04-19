@@ -29,10 +29,6 @@ func Run() {
 	ctx := context.Background()
 	log := logger.NewWithCtx(ctx)
 
-	authHelper := helpers.NewAuthHelper(log)
-	responseHelper := helpers.NewResponseHelper(log)
-	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
-
 	db, err = mysql.New(*log)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error while connecting to database")
@@ -42,6 +38,10 @@ func Run() {
 
 	tenantRepo := repository.NewGormTenantRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
+
+	authHelper := helpers.NewAuthHelper(log, tenantRepo)
+	responseHelper := helpers.NewResponseHelper(log)
+	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
 
 	tenantHandler := handlers.NewTenantHandler(tenantRepo, log, authHelper, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(userRepo, log, authHelper, responseHelper, validatorHelper)
@@ -56,7 +56,6 @@ func Run() {
 
 	rateLimitMiddleware := middleware.NewRateLimitRequestMiddleware(log, redisClient)
 	router.Use(rateLimitMiddleware.Start)
-
 	router.Use(middleware.ContentTypeJSON)
 
 	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods("POST")
