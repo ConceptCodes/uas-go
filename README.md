@@ -196,6 +196,42 @@ curl -X POST \
 
 ---
 
+**Login (OTP)**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": ""
+  }' \
+  https://localhost:8080/api/v1/users/otp/send
+```
+```json
+{
+  "message": "OTP sent successfully"
+}
+```
+
+---
+
+**Verify OTP**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "phone_number": "",
+    "otp": ""
+  }' \
+  https://localhost:8080/api/v1/users/otp/verify
+```
+```json
+{
+  "access_token": "eyJhbGciNiIsInR5C...",
+  "refresh_token": "eyJhbGciNiIsInR5C..."
+}
+```
+
 
 ### Security Considerations
 
@@ -206,9 +242,9 @@ curl -X POST \
 
 ## Roadmap
 - [ ] Add support for email verification
-- [ ] Add support for password reset
+- [x] Add support for password reset
 - [x] Add support for rate limiting
-- [ ] Add support for OTP login
+- [x] Add support for OTP login
 - [ ] Add support for magic link login
 - [ ] Add support for RBAC
 - [ ] Add support for audit logging
