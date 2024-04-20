@@ -25,3 +25,7 @@ type CredentialsRegisterRequest struct {
 type ForgotPasswordRequest struct {
 	Email string `json:"email" validate:"email,required,noSQLKeywords"`
 }
+
+type ResetPasswordRequest struct {
+	Password string `json:"password" validate:"email,required,noSQLKeywords"`
+}

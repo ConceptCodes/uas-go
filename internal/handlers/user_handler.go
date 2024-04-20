@@ -17,13 +17,13 @@ import (
 )
 
 type UserHandler struct {
-	userRepo        repository.UserRepository
+	userRepo          repository.UserRepository
 	passwordResetRepo repository.GormPasswordResetRepository
-	log             *zerolog.Logger
-	authHelper      *helpers.AuthHelper
-	responseHelper  *helpers.ResponseHelper
-	validatorHelper *helpers.ValidatorHelper
-	emailHelper     *helpers.EmailHelper
+	log               *zerolog.Logger
+	authHelper        *helpers.AuthHelper
+	responseHelper    *helpers.ResponseHelper
+	validatorHelper   *helpers.ValidatorHelper
+	emailHelper       *helpers.EmailHelper
 }
 
 func NewUserHandler(
@@ -36,13 +36,13 @@ func NewUserHandler(
 	emailHelper *helpers.EmailHelper,
 ) *UserHandler {
 	return &UserHandler{
-		userRepo:        userRepo,
+		userRepo:          userRepo,
 		passwordResetRepo: passwordResetRepo,
-		log:             log,
-		authHelper:      authHelper,
-		responseHelper:  responseHelper,
-		validatorHelper: validatorHelper,
-		emailHelper:     emailHelper,
+		log:               log,
+		authHelper:        authHelper,
+		responseHelper:    responseHelper,
+		validatorHelper:   validatorHelper,
+		emailHelper:       emailHelper,
 	}
 }
 
@@ -211,6 +211,17 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 
 	reset_token := h.authHelper.GenerateResetPasswordToken()
 
+	tmp := models.PasswordResetModel{
+		UserID: user.ID,
+		Token:  reset_token,
+	}
+
+	err = h.passwordResetRepo.Create(&tmp)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error sending reset password email", constants.InternalServerError, err)
+	}
+
 	tmpl_data := models.ForgotPasswordData{
 		Token: reset_token,
 		Name:  user.Name,
@@ -220,11 +231,23 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error sending reset password email")
-		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+		h.responseHelper.SendErrorResponse(w, "Error sending reset password email", constants.InternalServerError, err)
 	}
 
 }
 
+// ResetPasswordHandler godoc
+// @Summary Reset Password
+// @Description Reset Password
+// @Tags User
+// @Accept  json
+// @Produce  json
+// @Param token path string true "Token"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /users/credentials/reset-password/{token} [post]
 func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	token := vars["token"]
@@ -232,6 +255,14 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 	if token == "" {
 		h.log.Error().Msg("Token is empty")
 		h.responseHelper.SendErrorResponse(w, "Token is empty", constants.InternalServerError, nil)
+	}
+
+	var data models.ResetPasswordRequest
+
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
 	}
 
 	record, err := h.passwordResetRepo.FindByToken(token)
@@ -242,8 +273,32 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 	}
 
 	if token == record.Token {
-		// TODO: where is their new password
-		// NOTE: should we  soft delete the record?
+		user, err := h.userRepo.FindById(record.UserID)
+
+		if err != nil {
+			err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "id:", record.UserID)
+			h.responseHelper.SendErrorResponse(w, err_message, constants.BadRequest, err)
+		}
+
+		password_hash, err := h.authHelper.HashPassword(data.Password)
+
+		if err != nil {
+			h.log.Error().Err(err).Msg("Error hashing password")
+			h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
+		}
+
+		user.Password = password_hash
+
+		err = h.userRepo.Save(user)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
+		}
+
+	} else {
+		h.responseHelper.SendErrorResponse(w, "Invalid token", constants.BadRequest, nil)
 	}
+
+	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
 
 }

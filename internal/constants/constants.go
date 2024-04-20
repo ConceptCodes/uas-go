@@ -16,7 +16,7 @@ const (
 	CredentialsLoginEndpoint    = ApiPrefix + "/users/credential/login"
 	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
 	CredentialsForgotEndpoint   = ApiPrefix + "/users/credential/forgot-password"
-	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password"
+	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password/:token"
 
 	// Messages
 	EntityNotFound       = "%s with %s %s does not exist."
@@ -30,6 +30,7 @@ const (
 	FindByIdQuery    = "id = ?"
 	FindByEmailQuery = "email = ?"
 	FindByToken      = "token = ?"
+	FindByUserId     = "user_id = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
