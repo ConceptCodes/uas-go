@@ -16,11 +16,14 @@ require (
 	github.com/go-redis/redis_rate/v10 v10.0.1 // indirect
 	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
+	github.com/golang/mock v1.6.0 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/resend/resend-go/v2 v2.6.0 // indirect
+	github.com/twilio/twilio-go v1.20.1 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
