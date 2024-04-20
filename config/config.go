@@ -40,8 +40,9 @@ type Config struct {
 	CookieBlockKey string `env:COOKIE_BLOCK_KEY" envDefault:"cookie_block_key"`
 	CookieHashKey  string `env:COOKIE_HASH_KEY" envDefault:"cookie_hash_key"`
 
-	TwilioAccountSid string `env:"TWILIO_ACCOUNT_SID" envDefault:"twilio_account_sid"`
-	TwilioAuthToken  string `env:"TWILIO_AUTH_TOKEN" envDefault:"twilio_auth_token"`
+	TwilioAccountSid  string `env:"TWILIO_ACCOUNT_SID" envDefault:"twilio_account_sid"`
+	TwilioAuthToken   string `env:"TWILIO_AUTH_TOKEN" envDefault:"twilio_auth_token"`
+	TwilioPhoneNumber string `env:"TWILIO_PHONE_NUMBER" envDefault:"twilio_phone_number"`
 }
 
 var AppConfig = Config{}
