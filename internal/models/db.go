@@ -11,11 +11,12 @@ type TenantModel struct {
 
 type UserModel struct {
 	gorm.Model
-	ID          string `gorm:"primaryKey;type:varchar(36);unique_index"`
-	Name        string `gorm:"type:varchar(100)"`
-	Email       string `gorm:"type:varchar(100);unique_index"`
-	Password    string `gorm:"type:varchar(100);unique_index"`
-	PhoneNumber string `gorm:"type:varchar(14);unique_index"`
+	ID            string `gorm:"primaryKey;type:varchar(36);unique_index"`
+	Name          string `gorm:"type:varchar(100)"`
+	Email         string `gorm:"type:varchar(100);unique_index"`
+	Password      string `gorm:"type:varchar(100);unique_index"`
+	PhoneNumber   string `gorm:"type:varchar(14);unique_index"`
+	EmailVerified bool   `gorm:"type:boolean"`
 }
 
 type PasswordResetModel struct {

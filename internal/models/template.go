@@ -1,6 +1,11 @@
 package models
 
 type ForgotPasswordData struct {
-	Name  string `json:"name"`
-	Token string `json:"token"`
+	Name string
+	Url  string
+}
+
+type VerifyEmailData struct {
+	Name string
+	Otp  string
 }

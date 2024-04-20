@@ -8,8 +8,9 @@ import (
 )
 
 type Config struct {
-	Port    int `env:"PORT" envDefault:"8080"`
-	Timeout int `env:"HTTP_TIMEOUT" envDefault:"15"`
+	Host    string `env:"HOST" envDefault:"127.0.0.1"`
+	Port    int    `env:"PORT" envDefault:"8080"`
+	Timeout int    `env:"HTTP_TIMEOUT" envDefault:"15"`
 
 	DbHost string `env:"DB_HOST" envDefault:"mysql_host"`
 	DbPort int    `env:"DB_PORT" envDefault:"5432"`

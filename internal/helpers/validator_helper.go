@@ -19,7 +19,7 @@ type ValidatorHelper struct {
 }
 
 func init() {
-	validate = validator.New()
+	validate = validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterValidation("noSQLKeywords", noSQLKeywords)
 }
 

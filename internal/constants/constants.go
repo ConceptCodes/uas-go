@@ -18,7 +18,7 @@ const (
 	CredentialsLoginEndpoint    = ApiPrefix + "/users/credential/login"
 	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
 	CredentialsForgotEndpoint   = ApiPrefix + "/users/credential/forgot-password"
-	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password/:token"
+	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password"
 	OtpSendEndpoint             = ApiPrefix + "/users/otp/send"
 	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
 

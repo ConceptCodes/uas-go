@@ -11,7 +11,6 @@ import (
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog"
 )
@@ -82,17 +81,36 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 	user_id := uuid.New().String()
 
 	user := models.UserModel{
-		ID:          user_id,
-		Name:        data.Name,
-		Email:       data.Email,
-		Password:    password_hash,
-		PhoneNumber: data.PhoneNumber,
+		ID:            user_id,
+		Name:          data.Name,
+		Email:         data.Email,
+		Password:      password_hash,
+		PhoneNumber:   data.PhoneNumber,
+		EmailVerified: false,
 	}
 
 	err = h.userRepo.Create(&user)
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+	}
+
+	code, err := h.authHelper.GenerateOtpCode(data.PhoneNumber)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error w/ otp generation", constants.InternalServerError, err)
+	}
+
+	tmpl_data := models.VerifyEmailData{
+		Name: user.Name,
+		Otp:  code,
+	}
+
+	err = h.emailHelper.SendEmail(data.Email, "verify-email", tmpl_data)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error sending verification email")
+		h.responseHelper.SendErrorResponse(w, "Error w/ sending verification email", constants.InternalServerError, err)
 	}
 
 	res := &models.RegisterUserResponse{
@@ -102,6 +120,60 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "User registered successfully", res)
+
+}
+
+// VerifyEmailHandler godoc
+// @Summary Verify Email
+// @Description Verify Email
+// @Tags User
+// @Accept  json
+// @Produce  json
+// @Param token path string true "Token"
+// @Success 200 {object} SuccessResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /users/credentials/verify-email/{token} [post]
+func (h *UserHandler) CredentialsVerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	var data models.VerifyEmailRequest
+
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+	}
+
+	h.validatorHelper.ValidateStruct(w, &data)
+
+	err = h.authHelper.ValidateOtpCode(data.Email, data.Otp)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error verifying OTP code", constants.InternalServerError, err)
+	}
+
+	user, err := h.userRepo.FindByEmail(data.Email)
+
+	if err != nil {
+		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
+		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+	}
+
+	if user == nil {
+		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
+		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+	} else {
+		user.EmailVerified = true
+
+		err = h.userRepo.Save(user)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error verifying email", constants.InternalServerError, err)
+		}
+	}
+
+	h.responseHelper.SendSuccessResponse(w, "Email verified successfully", nil)
+
 }
 
 // LoginUserHandler godoc
@@ -136,6 +208,10 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	if user == nil {
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+	} else {
+		if !user.EmailVerified {
+			h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
+		}
 	}
 
 	valid := h.authHelper.CheckPasswordHash(data.Password, user.Password)
@@ -211,6 +287,10 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	if user == nil {
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+	} else {
+		if !user.EmailVerified {
+			h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
+		}
 	}
 
 	reset_token := h.authHelper.GenerateResetPasswordToken()
@@ -226,9 +306,11 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 		h.responseHelper.SendErrorResponse(w, "Error sending reset password email", constants.InternalServerError, err)
 	}
 
+	url := fmt.Sprintf("%s%s%s", config.AppConfig.Host, constants.CredentialsResetEndpoint, reset_token)
+
 	tmpl_data := models.ForgotPasswordData{
-		Token: reset_token,
-		Name:  user.Name,
+		Name: user.Name,
+		Url:  url,
 	}
 
 	err = h.emailHelper.SendEmail(data.Email, "reset-password", tmpl_data)
@@ -237,6 +319,8 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 		h.log.Error().Err(err).Msg("Error sending reset password email")
 		h.responseHelper.SendErrorResponse(w, "Error sending reset password email", constants.InternalServerError, err)
 	}
+
+	h.responseHelper.SendSuccessResponse(w, "Reset password email sent successfully", nil)
 
 }
 
@@ -253,8 +337,8 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 // @Failure 500 {object} ErrorResponse
 // @Router /users/credentials/reset-password/{token} [post]
 func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	token := vars["token"]
+	params := r.URL.Query()
+	token := params.Get("token")
 
 	if token == "" {
 		h.log.Error().Msg("Token is empty")
@@ -318,6 +402,7 @@ func (h *UserHandler) SendOtpCode(w http.ResponseWriter, r *http.Request) {
 
 	h.validatorHelper.ValidateStruct(w, &data)
 
+	// NOTE: should we retry this operation if it fails?
 	code, err := h.authHelper.GenerateOtpCode(data.PhoneNumber)
 
 	if err != nil {
@@ -333,6 +418,7 @@ func (h *UserHandler) SendOtpCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code sent successfully", nil)
+
 }
 
 func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
@@ -404,4 +490,5 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)
+	
 }

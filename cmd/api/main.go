@@ -90,7 +90,7 @@ func Run() {
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{
 		Handler:      router,
-		Addr:         fmt.Sprintf("127.0.0.1:%s", port),
+		Addr:         fmt.Sprintf("%s:%s", config.AppConfig.Host, port),
 		WriteTimeout: time.Duration(config.AppConfig.Timeout) * time.Second,
 		ReadTimeout:  time.Duration(config.AppConfig.Timeout) * time.Second,
 	}

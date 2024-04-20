@@ -20,7 +20,7 @@ type RegisterRequest struct {
 	Name        string `json:"name" validate:"required,noSQLKeywords"`
 	Email       string `json:"email" validate:"email,required,noSQLKeywords"`
 	Password    string `json:"password" validate:"required,noSQLKeywords"`
-	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
+	PhoneNumber string `json:"phone_number" validate:"required,e164,noSQLKeywords"`
 }
 
 type ForgotPasswordRequest struct {
@@ -37,5 +37,10 @@ type SendOtpRequest struct {
 
 type VerifyOtpRequest struct {
 	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
-	Otp         string `json:"otp" validate:"required,noSQLKeywords"`
+	Otp         string `json:"otp" validate:"required,noSQLKeywords,numeric"`
+}
+
+type VerifyEmailRequest struct {
+	Email string `json:"email" validate:"email,required,noSQLKeywords"`
+	Otp   string `json:"otp" validate:"required,noSQLKeywords,numeric"`
 }
