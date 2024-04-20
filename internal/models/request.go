@@ -16,10 +16,11 @@ type CredentialsLoginRequest struct {
 	Password string `json:"password" validate:"required,noSQLKeywords"`
 }
 
-type CredentialsRegisterRequest struct {
-	Name     string `json:"name" validate:"required,noSQLKeywords"`
-	Email    string `json:"email" validate:"email,required,noSQLKeywords"`
-	Password string `json:"password" validate:"required,noSQLKeywords"`
+type RegisterRequest struct {
+	Name        string `json:"name" validate:"required,noSQLKeywords"`
+	Email       string `json:"email" validate:"email,required,noSQLKeywords"`
+	Password    string `json:"password" validate:"required,noSQLKeywords"`
+	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
 }
 
 type ForgotPasswordRequest struct {

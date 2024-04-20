@@ -10,6 +10,7 @@ import (
 type UserRepository interface {
 	FindById(id string) (*models.UserModel, error)
 	FindByEmail(email string) (*models.UserModel, error)
+	FindByPhoneNumber(phoneNumber string) (*models.UserModel, error)
 	Create(user *models.UserModel) error
 	Delete(id string) error
 	Save(user *models.UserModel) error
@@ -45,6 +46,14 @@ func (r *GormUserRepository) FindById(id string) (*models.UserModel, error) {
 
 func (r *GormUserRepository) Save(user *models.UserModel) error {
 	return r.db.Save(user).Error
+}
+
+func (r *GormUserRepository) FindByPhoneNumber(phoneNumber string) (*models.UserModel, error) {
+	var user models.UserModel
+	if err := r.db.Where(constants.FindByPhoneNumber, phoneNumber).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func NewGormUserRepository(db *gorm.DB) UserRepository {

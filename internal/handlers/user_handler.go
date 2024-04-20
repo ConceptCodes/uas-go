@@ -61,7 +61,7 @@ func NewUserHandler(
 // @Failure 500 {object} ErrorResponse
 // @Router /users/credentials [post]
 func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-	var data models.CredentialsRegisterRequest
+	var data models.RegisterRequest
 
 	err := json.NewDecoder(r.Body).Decode(&data)
 
@@ -82,10 +82,11 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 	user_id := uuid.New().String()
 
 	user := models.UserModel{
-		ID:       user_id,
-		Name:     data.Name,
-		Email:    data.Email,
-		Password: password_hash,
+		ID:          user_id,
+		Name:        data.Name,
+		Email:       data.Email,
+		Password:    password_hash,
+		PhoneNumber: data.PhoneNumber,
 	}
 
 	err = h.userRepo.Create(&user)
@@ -349,6 +350,57 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error verifying OTP code", constants.InternalServerError, err)
+	}
+
+	user, err := h.userRepo.FindByPhoneNumber(data.PhoneNumber)
+	if err != nil {
+		user_id := uuid.New().String()
+
+		_user := models.UserModel{
+			ID:          user_id,
+			PhoneNumber: data.PhoneNumber,
+			Email:       "",
+			Password:    "",
+			Name:        "",
+		}
+
+		err = h.userRepo.Create(&_user)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, constants.InternalServerErrorMessage, constants.InternalServerError, err)
+		}
+	}
+
+	tenantId := helpers.GetTenantId(r)
+	access_token, err := h.authHelper.GenerateAccessJwtToken(user, tenantId)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error generating access token")
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+	}
+
+	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, tenantId)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error generating refresh token")
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+	}
+
+	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
+	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
+
+	var s = securecookie.New(cookieHashKey, cookieBlockKey)
+
+	if encoded, err := s.Encode("access-token", access_token); err == nil {
+		cookie := &http.Cookie{
+			Name:     "access-token",
+			Value:    encoded,
+			Path:     "/",
+			Secure:   true,
+			HttpOnly: true,
+		}
+		http.SetCookie(w, cookie)
+		w.Header().Set(constants.JwtHeader, refresh_token)
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)

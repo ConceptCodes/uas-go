@@ -23,19 +23,21 @@ const (
 	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
 
 	// Messages
-	EntityNotFound       = "%s with %s %s does not exist."
-	GetEntityByIdMessage = "Found %s with id %d."
-	SaveEntityError      = "Error while saving %s."
-	SuccessMessage       = "You have successfully %s!"
-	CreateEntityError    = "Error while creating %s."
-	CreateEntityMessage  = "Created %s successfully."
-	OtpCodeMessage       = "Your OTP code is %s."
+	EntityNotFound             = "%s with %s %s does not exist."
+	GetEntityByIdMessage       = "Found %s with id %d."
+	SaveEntityError            = "Error while saving %s."
+	SuccessMessage             = "You have successfully %s!"
+	CreateEntityError          = "Error while creating %s."
+	CreateEntityMessage        = "Created %s successfully."
+	OtpCodeMessage             = "Your OTP code is %s."
+	InternalServerErrorMessage = "Internal server error."
 
 	// Queries
-	FindByIdQuery    = "id = ?"
-	FindByEmailQuery = "email = ?"
-	FindByToken      = "token = ?"
-	FindByUserId     = "user_id = ?"
+	FindByIdQuery     = "id = ?"
+	FindByEmailQuery  = "email = ?"
+	FindByToken       = "token = ?"
+	FindByUserId      = "user_id = ?"
+	FindByPhoneNumber = "phone_number = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
