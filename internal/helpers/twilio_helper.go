@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"uas/config"
 
@@ -32,12 +33,15 @@ func (t *TwilioHelper) SendSMS(to, from, body string) error {
 	params.SetFrom(config.AppConfig.TwilioPhoneNumber)
 	params.SetBody(body)
 
-	_, err := t.twilioClient.Api.CreateMessage(params)
+	resp, err := t.twilioClient.Api.CreateMessage(params)
 
-	if err == nil {
-		t.log.Info().Msgf("SMS sent to %s", to)
+	if err != nil {
+		t.log.Error().Err(err).Msg("Error while sending SMS")
+		return err
+	} else {
+		response, _ := json.Marshal(*resp)
+		t.log.Debug().Bytes("response", response).Msgf("SMS sent successfully")
 	}
 
-	t.log.Error().Err(err).Msg("Error while sending SMS")
-	return err
+	return nil
 }

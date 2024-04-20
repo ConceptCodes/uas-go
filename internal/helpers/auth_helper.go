@@ -3,7 +3,11 @@ package helpers
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
+	"math/rand"
 	"strings"
+	"time"
+	"uas/config"
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
@@ -12,12 +16,13 @@ import (
 )
 
 type AuthHelper struct {
-	log        *zerolog.Logger
-	tenantRepo repository.TenantRepository
+	log         *zerolog.Logger
+	tenantRepo  repository.TenantRepository
+	redisHelper RedisHelper
 }
 
-func NewAuthHelper(log *zerolog.Logger, tenantRepo repository.TenantRepository) *AuthHelper {
-	return &AuthHelper{log: log, tenantRepo: tenantRepo}
+func NewAuthHelper(log *zerolog.Logger, tenantRepo repository.TenantRepository, redisHelper RedisHelper) *AuthHelper {
+	return &AuthHelper{log: log, tenantRepo: tenantRepo, redisHelper: redisHelper}
 }
 
 func (h *AuthHelper) GenerateBasicAuthToken(tenantId string, tenantSecret string) string {
@@ -79,4 +84,42 @@ func (h *AuthHelper) GenerateResetPasswordToken() string {
 	b := uuid.New().String()
 
 	return h.GenerateBasicAuthToken(a, b)
+}
+
+func (h *AuthHelper) GenerateOtpCode(userId string) error {
+	rand.Seed(time.Now().UnixNano())
+	otp_code := rand.Intn(9000) + 1000
+
+	key := fmt.Sprintf("otp:%s", userId)
+	dur := time.Duration(config.AppConfig.OtpExpire) * time.Minute
+
+	err := h.redisHelper.Set(key, otp_code, dur)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error generating OTP code")
+		return err
+	}
+
+	return nil
+}
+
+func (h *AuthHelper) ValidateOtpCode(userId string, otpCode int) error {
+	key := fmt.Sprintf("otp:%s", userId)
+
+	code, err := h.redisHelper.Get(key)
+
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error getting OTP code")
+		return err
+	}
+
+	if code == "" {
+		return errors.New("OTP code not found")
+	}
+
+	if otpCode != code {
+		return errors.New("Invalid OTP code")
+	}
+
+	return nil
 }
