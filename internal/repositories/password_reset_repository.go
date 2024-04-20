@@ -33,3 +33,7 @@ func (r *GormPasswordResetRepository) Create(model *models.PasswordResetModel) e
 func (r *GormPasswordResetRepository) Delete(id string) error {
 	return r.db.Where(constants.FindByToken, id).Delete(&models.PasswordResetModel{}).Error
 }
+
+func NewGormPasswordResetRepository(db *gorm.DB) PasswordResetRepository {
+	return &GormPasswordResetRepository{db}
+}

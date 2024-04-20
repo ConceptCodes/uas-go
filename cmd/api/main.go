@@ -40,6 +40,7 @@ func Run() {
 
 	tenantRepo := repository.NewGormTenantRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
+	passwordResetRepo := repository.NewGormPasswordResetRepository(db)
 
 	authHelper := helpers.NewAuthHelper(log, tenantRepo)
 	responseHelper := helpers.NewResponseHelper(log)
@@ -47,7 +48,7 @@ func Run() {
 	emailHelper := helpers.NewEmailHelper(log, emailClient)
 
 	tenantHandler := handlers.NewTenantHandler(tenantRepo, log, authHelper, responseHelper, validatorHelper)
-	userHandler := handlers.NewUserHandler(userRepo, log, authHelper, responseHelper, validatorHelper, emailHelper)
+	userHandler := handlers.NewUserHandler(userRepo, passwordResetRepo, log, authHelper, responseHelper, validatorHelper, emailHelper)
 
 	router := mux.NewRouter()
 

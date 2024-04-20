@@ -18,7 +18,7 @@ import (
 
 type UserHandler struct {
 	userRepo          repository.UserRepository
-	passwordResetRepo repository.GormPasswordResetRepository
+	passwordResetRepo repository.PasswordResetRepository
 	log               *zerolog.Logger
 	authHelper        *helpers.AuthHelper
 	responseHelper    *helpers.ResponseHelper
@@ -28,7 +28,7 @@ type UserHandler struct {
 
 func NewUserHandler(
 	userRepo repository.UserRepository,
-	passwordResetRepo repository.GormPasswordResetRepository,
+	passwordResetRepo repository.PasswordResetRepository,
 	log *zerolog.Logger,
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
