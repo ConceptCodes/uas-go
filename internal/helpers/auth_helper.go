@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 	"uas/config"
@@ -88,12 +89,12 @@ func (h *AuthHelper) GenerateResetPasswordToken() string {
 
 func (h *AuthHelper) GenerateOtpCode(userId string) error {
 	rand.Seed(time.Now().UnixNano())
-	otp_code := rand.Intn(9000) + 1000
+	otp_code := strconv.Itoa(rand.Intn(9000) + 1000)
 
 	key := fmt.Sprintf("otp:%s", userId)
 	dur := time.Duration(config.AppConfig.OtpExpire) * time.Minute
 
-	err := h.redisHelper.Set(key, otp_code, dur)
+	err := h.redisHelper.SetData(key, otp_code, dur)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating OTP code")
@@ -103,10 +104,10 @@ func (h *AuthHelper) GenerateOtpCode(userId string) error {
 	return nil
 }
 
-func (h *AuthHelper) ValidateOtpCode(userId string, otpCode int) error {
+func (h *AuthHelper) ValidateOtpCode(userId string, otpCode string) error {
 	key := fmt.Sprintf("otp:%s", userId)
 
-	code, err := h.redisHelper.Get(key)
+	code, err := h.redisHelper.GetData(key)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error getting OTP code")
@@ -114,11 +115,11 @@ func (h *AuthHelper) ValidateOtpCode(userId string, otpCode int) error {
 	}
 
 	if code == "" {
-		return errors.New("OTP code not found")
+		return errors.New("otp code not found")
 	}
 
 	if otpCode != code {
-		return errors.New("Invalid OTP code")
+		return errors.New("invalid OTP code")
 	}
 
 	return nil
