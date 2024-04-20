@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 const (
 	// Error codes
 	NotFound            = "UAS-404"
@@ -43,6 +45,7 @@ const (
 	DevelopmentEnv      = "development"
 	ProductionEnv       = "prod"
 	StartMessage        = "Starting API Service on PORT=%s | ENV=%s"
+	DefaultRedisTtl     = 1 * time.Hour
 
 	// Email
 	EmailTemplatePath   = "%s/web/emails/%s.html"

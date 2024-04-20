@@ -43,6 +43,8 @@ type Config struct {
 	TwilioAccountSid  string `env:"TWILIO_ACCOUNT_SID" envDefault:"twilio_account_sid"`
 	TwilioAuthToken   string `env:"TWILIO_AUTH_TOKEN" envDefault:"twilio_auth_token"`
 	TwilioPhoneNumber string `env:"TWILIO_PHONE_NUMBER" envDefault:"twilio_phone_number"`
+
+	OtpExpire int `env:"OTP_EXPIRE" envDefault:"5"`
 }
 
 var AppConfig = Config{}
