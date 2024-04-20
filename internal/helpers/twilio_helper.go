@@ -22,9 +22,9 @@ func NewTwilioHelper(log *zerolog.Logger, twilioClient *twilio.RestClient) *Twil
 	}
 }
 
-func (t *TwilioHelper) SendSMS(to, from, body string) error {
+func (t *TwilioHelper) SendSMS(to, body string) error {
 
-	if to == "" || from == "" || body == "" {
+	if to == "" || body == "" {
 		return fmt.Errorf("to, from, and body are required")
 	}
 

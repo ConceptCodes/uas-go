@@ -16,6 +16,7 @@ import (
 	"uas/pkg/logger"
 	"uas/pkg/storage/mysql"
 	"uas/pkg/storage/redis"
+	"uas/pkg/twilio"
 
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
@@ -36,19 +37,31 @@ func Run() {
 	}
 
 	emailClient := email.New()
-	redisClient := redis.New(*log)
+	redisClient := redis.New(*log, ctx)
+	twilioClient := twilio.New()
 
 	tenantRepo := repository.NewGormTenantRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
 	passwordResetRepo := repository.NewGormPasswordResetRepository(db)
 
-	authHelper := helpers.NewAuthHelper(log, tenantRepo)
+	redisHelper := helpers.NewRedisHelper(redisClient, log, ctx)
+	authHelper := helpers.NewAuthHelper(log, tenantRepo, *redisHelper)
 	responseHelper := helpers.NewResponseHelper(log)
 	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
 	emailHelper := helpers.NewEmailHelper(log, emailClient)
+	twilioHelper := helpers.NewTwilioHelper(log, twilioClient)
 
 	tenantHandler := handlers.NewTenantHandler(tenantRepo, log, authHelper, responseHelper, validatorHelper)
-	userHandler := handlers.NewUserHandler(userRepo, passwordResetRepo, log, authHelper, responseHelper, validatorHelper, emailHelper)
+	userHandler := handlers.NewUserHandler(
+		userRepo,
+		passwordResetRepo,
+		log,
+		authHelper,
+		responseHelper,
+		validatorHelper,
+		emailHelper,
+		twilioHelper,
+	)
 
 	router := mux.NewRouter()
 
@@ -71,8 +84,8 @@ func Run() {
 	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods("POST")
 
 	// Otp router
-
-	// Profile
+	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods("POST")
+	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods("POST")
 
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{

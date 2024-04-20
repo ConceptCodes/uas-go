@@ -29,3 +29,12 @@ type ForgotPasswordRequest struct {
 type ResetPasswordRequest struct {
 	Password string `json:"password" validate:"email,required,noSQLKeywords"`
 }
+
+type SendOtpRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
+}
+
+type VerifyOtpRequest struct {
+	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
+	Otp         string `json:"otp" validate:"required,noSQLKeywords"`
+}

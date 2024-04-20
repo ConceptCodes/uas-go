@@ -19,6 +19,8 @@ const (
 	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
 	CredentialsForgotEndpoint   = ApiPrefix + "/users/credential/forgot-password"
 	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password/:token"
+	OtpSendEndpoint             = ApiPrefix + "/users/otp/send"
+	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
 
 	// Messages
 	EntityNotFound       = "%s with %s %s does not exist."
@@ -27,6 +29,7 @@ const (
 	SuccessMessage       = "You have successfully %s!"
 	CreateEntityError    = "Error while creating %s."
 	CreateEntityMessage  = "Created %s successfully."
+	OtpCodeMessage       = "Your OTP code is %s."
 
 	// Queries
 	FindByIdQuery    = "id = ?"

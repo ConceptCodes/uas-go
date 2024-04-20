@@ -24,6 +24,7 @@ type UserHandler struct {
 	responseHelper    *helpers.ResponseHelper
 	validatorHelper   *helpers.ValidatorHelper
 	emailHelper       *helpers.EmailHelper
+	twilioHelper      *helpers.TwilioHelper
 }
 
 func NewUserHandler(
@@ -34,6 +35,7 @@ func NewUserHandler(
 	responseHelper *helpers.ResponseHelper,
 	validatorHelper *helpers.ValidatorHelper,
 	emailHelper *helpers.EmailHelper,
+	twilioHelper *helpers.TwilioHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:          userRepo,
@@ -43,6 +45,7 @@ func NewUserHandler(
 		responseHelper:    responseHelper,
 		validatorHelper:   validatorHelper,
 		emailHelper:       emailHelper,
+		twilioHelper:      twilioHelper,
 	}
 }
 
@@ -301,4 +304,52 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 
 	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
 
+}
+
+func (h *UserHandler) SendOtpCode(w http.ResponseWriter, r *http.Request) {
+	var data models.SendOtpRequest
+
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+	}
+
+	h.validatorHelper.ValidateStruct(w, &data)
+
+	code, err := h.authHelper.GenerateOtpCode(data.PhoneNumber)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error generating OTP code", constants.InternalServerError, err)
+	}
+
+	msg := fmt.Sprintf(constants.OtpCodeMessage, code)
+
+	err = h.twilioHelper.SendSMS(data.PhoneNumber, msg)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error sending OTP code", constants.InternalServerError, err)
+	}
+
+	h.responseHelper.SendSuccessResponse(w, "OTP code sent successfully", nil)
+}
+
+func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
+	var data models.VerifyOtpRequest
+
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+	}
+
+	h.validatorHelper.ValidateStruct(w, &data)
+
+	err = h.authHelper.ValidateOtpCode(data.PhoneNumber, data.Otp)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error verifying OTP code", constants.InternalServerError, err)
+	}
+
+	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)
 }

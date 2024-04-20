@@ -87,25 +87,25 @@ func (h *AuthHelper) GenerateResetPasswordToken() string {
 	return h.GenerateBasicAuthToken(a, b)
 }
 
-func (h *AuthHelper) GenerateOtpCode(userId string) error {
+func (h *AuthHelper) GenerateOtpCode(phoneNumber string) (string, error) {
 	rand.Seed(time.Now().UnixNano())
 	otp_code := strconv.Itoa(rand.Intn(9000) + 1000)
 
-	key := fmt.Sprintf("otp:%s", userId)
+	key := fmt.Sprintf("otp:%s", phoneNumber)
 	dur := time.Duration(config.AppConfig.OtpExpire) * time.Minute
 
 	err := h.redisHelper.SetData(key, otp_code, dur)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating OTP code")
-		return err
+		return "", err
 	}
 
-	return nil
+	return otp_code, nil
 }
 
-func (h *AuthHelper) ValidateOtpCode(userId string, otpCode string) error {
-	key := fmt.Sprintf("otp:%s", userId)
+func (h *AuthHelper) ValidateOtpCode(phoneNumber string, otpCode string) error {
+	key := fmt.Sprintf("otp:%s", phoneNumber)
 
 	code, err := h.redisHelper.GetData(key)
 
