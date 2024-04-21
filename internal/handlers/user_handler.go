@@ -86,6 +86,7 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 		Email:         data.Email,
 		Password:      password_hash,
 		PhoneNumber:   data.PhoneNumber,
+		Role:          models.User,
 		EmailVerified: false,
 	}
 
@@ -490,5 +491,5 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)
-	
+
 }

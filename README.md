@@ -241,7 +241,7 @@ curl -X POST \
 
 
 ## Roadmap
-- [ ] Add support for email verification
+- [x] Add support for email verification
 - [x] Add support for password reset
 - [x] Add support for rate limiting
 - [x] Add support for OTP login
