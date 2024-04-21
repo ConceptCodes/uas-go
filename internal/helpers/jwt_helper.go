@@ -78,3 +78,4 @@ func (h *AuthHelper) ParseRefreshJwtToken(tokenString string) (jwt.MapClaims, er
 
 	return claims, nil
 }
+

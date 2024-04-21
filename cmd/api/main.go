@@ -11,6 +11,7 @@ import (
 	"uas/internal/handlers"
 	"uas/internal/helpers"
 	"uas/internal/middleware"
+	"uas/internal/models"
 	repository "uas/internal/repositories"
 	"uas/pkg/email"
 	"uas/pkg/logger"
@@ -75,17 +76,25 @@ func Run() {
 	router.Use(rateLimitMiddleware.Start)
 	router.Use(middleware.ContentTypeJSON)
 
-	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods("POST")
+	//Tenant router
+	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods(http.MethodPost)
+
+	rbacMiddleware := middleware.NewRBACMiddleware(log)
+	getR := router.Methods(http.MethodDelete).Subrouter()
+	getR.HandleFunc(constants.DeleteTenantEndpoint, tenantHandler.DeleteTenantHandler)
+	getR.Use(func(next http.Handler) http.Handler {
+		return rbacMiddleware.Authorize([]models.Role{models.Admin}, next)
+	})
 
 	// Credentials router
-	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods("POST")
-	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods("POST")
-	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods("POST")
-	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods("POST")
+	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
 
 	// Otp router
-	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods("POST")
-	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods("POST")
+	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods(http.MethodPost)
+	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods(http.MethodPost)
 
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{

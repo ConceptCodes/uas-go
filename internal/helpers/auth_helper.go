@@ -123,3 +123,4 @@ func (h *AuthHelper) ValidateOtpCode(target string, otpCode string) error {
 
 	return nil
 }
+

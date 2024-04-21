@@ -89,6 +89,39 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 
 	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
 
-	w.Header().Set("Authorization", token)
+	w.Header().Set(constants.AuthorizationHeader, token)
 	h.responseHelper.SendSuccessResponse(w, "Tenant onboarded successfully", res)
+}
+
+// DeleteTenantHandler godoc
+// @Summary Delete Tenant
+// @Description Delete Tenant
+// @Tags Tenant
+// @Accept  json
+// @Produce  json
+// @Param id path string true "Tenant ID"
+// @Success 200 {object} DeleteTenantResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /tenants/{id} [delete]
+func (h *TenantHandler) DeleteTenantHandler(w http.ResponseWriter, r *http.Request) {
+	vars := r.URL.Query()
+	tenant_id := vars.Get("id")
+
+	if tenant_id == "" {
+		message := fmt.Sprintf(constants.EntityNotFound, "Tenant", "id", tenant_id)
+		h.responseHelper.SendErrorResponse(w, message, constants.NotFound, nil)
+	}
+
+	err := h.tenantRepo.Delete(tenant_id)
+
+	if err != nil {
+		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
+		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
+	}
+
+	// Note: if we introduced sessions, we would need to delete all sessions associated with the tenant here
+
+	h.responseHelper.SendSuccessResponse(w, "Tenant deleted successfully", nil)
 }
