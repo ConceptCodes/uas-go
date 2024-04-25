@@ -36,30 +36,3 @@ func New(l zerolog.Logger, ctx context.Context) *redis.Client {
 
 	return client
 }
-
-// func (r *RedisClient) HealthCheck() bool {
-// 	r.log.
-// 		Debug().
-// 		Msgf(fmt.Sprintf(constants.HealthCheckMessage, "redis"))
-
-// 	res := r.Client.Ping(r.Ctx).Err()
-
-// 	if res != nil {
-// 		r.log.
-// 			Error().
-// 			Err(res).
-// 			Msgf(constants.HealthCheckError, "redis")
-// 		return false
-// 	}
-
-// 	r.log.Info().Msg("Redis is up")
-
-// 	return true
-// }
-
-// func (r *RedisClient) Close() error {
-// 	r.log.
-// 		Debug().
-// 		Msg("Closing redis connection")
-// 	return r.Client.Close()
-// }
