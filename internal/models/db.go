@@ -28,7 +28,13 @@ type UserModel struct {
 	Password      string `gorm:"type:varchar(100);unique_index"`
 	PhoneNumber   string `gorm:"type:varchar(14);unique_index"`
 	EmailVerified bool   `gorm:"type:boolean"`
-	Role          Role  `json:"ecosystem" sql:"type:ENUM('production', 'testsystem')"`
+}
+
+type DepartmentRoles struct {
+	gorm.Model
+	ID     string `gorm:"primaryKey;type:varchar(36);unique_index"`
+	Role   Role   `gorm:"type:varchar(10);unique_index"`
+	UserID string `gorm:"primaryKey;type:varchar(36);unique_index"`
 }
 
 type PasswordResetModel struct {

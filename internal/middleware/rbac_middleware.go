@@ -53,6 +53,10 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 
 		m.log.Info().Msgf("Access token is valid")
 		user_role := claims["role"].(models.Role)
+		user_id := claims["user_id"].(string)
+
+		r = helpers.SetUserId(r, user_id)
+		r = helpers.SetRole(r, user_role)
 
 		for _, role := range roles {
 			if role == user_role {

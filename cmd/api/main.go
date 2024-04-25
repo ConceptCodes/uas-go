@@ -44,6 +44,7 @@ func Run() {
 	tenantRepo := repository.NewGormTenantRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
 	passwordResetRepo := repository.NewGormPasswordResetRepository(db)
+	departmentRoleRepo := repository.NewGormDepartmentRoleRepository(db)
 
 	redisHelper := helpers.NewRedisHelper(redisClient, log, ctx)
 	authHelper := helpers.NewAuthHelper(log, tenantRepo, *redisHelper)
@@ -56,6 +57,7 @@ func Run() {
 	userHandler := handlers.NewUserHandler(
 		userRepo,
 		passwordResetRepo,
+		departmentRoleRepo,
 		log,
 		authHelper,
 		responseHelper,
@@ -76,14 +78,19 @@ func Run() {
 	router.Use(rateLimitMiddleware.Start)
 	router.Use(middleware.ContentTypeJSON)
 
+	rbacMiddleware := middleware.NewRBACMiddleware(log)
+
+	var OnlyAdmin = []models.Role{models.Admin}
+	// var OnlyUser = []models.Role{models.User}
+	// var General = []models.Role{models.Admin, models.User}
+
 	//Tenant router
 	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods(http.MethodPost)
 
-	rbacMiddleware := middleware.NewRBACMiddleware(log)
-	getR := router.Methods(http.MethodDelete).Subrouter()
-	getR.HandleFunc(constants.DeleteTenantEndpoint, tenantHandler.DeleteTenantHandler)
-	getR.Use(func(next http.Handler) http.Handler {
-		return rbacMiddleware.Authorize([]models.Role{models.Admin}, next)
+	delTenant := router.Methods(http.MethodDelete).Subrouter()
+	delTenant.HandleFunc(constants.DeleteTenantEndpoint, tenantHandler.DeleteTenantHandler)
+	delTenant.Use(func(next http.Handler) http.Handler {
+		return rbacMiddleware.Authorize(OnlyAdmin, next)
 	})
 
 	// Credentials router

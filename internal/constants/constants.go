@@ -1,6 +1,8 @@
 package constants
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	// Error codes
@@ -34,11 +36,11 @@ const (
 	InternalServerErrorMessage = "Internal server error."
 
 	// Queries
-	FindByIdQuery     = "id = ?"
-	FindByEmailQuery  = "email = ?"
-	FindByToken       = "token = ?"
-	FindByUserId      = "user_id = ?"
-	FindByPhoneNumber = "phone_number = ?"
+	FindByIdQuery      = "id = ?"
+	FindByEmailQuery   = "email = ?"
+	FindByToken        = "token = ?"
+	FindByUserId       = "user_id = ?"
+	FindByPhoneNumber  = "phone_number = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
@@ -62,6 +64,7 @@ const (
 	RequestIdCtxKey = "request_id"
 	UserIdCtxKey    = "user_id"
 	TenantIdCtxKey  = "tenant_id"
+	RoleCtxKey      = "role"
 
 	// Errors
 	HealthCheckError         = "Error while performing health-check for service: %s"

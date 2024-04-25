@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"uas/internal/constants"
+	"uas/internal/models"
 )
 
 type ContextKey string
@@ -12,6 +13,7 @@ const (
 	RequestIDKey ContextKey = constants.RequestIdCtxKey
 	UserId       ContextKey = constants.UserIdCtxKey
 	TenantId     ContextKey = constants.TenantIdCtxKey
+	Role         ContextKey = constants.RoleCtxKey
 )
 
 func SetRequestId(r *http.Request, requestID string) *http.Request {
@@ -50,4 +52,18 @@ func GetTenantId(r *http.Request) string {
 		return ""
 	}
 	return tenantId.(string)
+}
+
+func SetRole(r *http.Request, role models.Role) *http.Request {
+	ctx := r.Context()
+	ctx = context.WithValue(ctx, Role, role)
+	return r.WithContext(ctx)
+}
+
+func GetRole(r *http.Request) models.Role {
+	role := r.Context().Value(Role)
+	if role == nil {
+		return ""
+	}
+	return role.(models.Role)
 }
