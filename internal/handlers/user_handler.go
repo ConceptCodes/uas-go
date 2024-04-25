@@ -503,23 +503,51 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
 	}
 
-	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
-	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
-
-	var s = securecookie.New(cookieHashKey, cookieBlockKey)
-
-	if encoded, err := s.Encode("access-token", access_token); err == nil {
-		cookie := &http.Cookie{
-			Name:     "access-token",
-			Value:    encoded,
-			Path:     "/",
-			Secure:   true,
-			HttpOnly: true,
-		}
-		http.SetCookie(w, cookie)
-		w.Header().Set(constants.JwtHeader, refresh_token)
-	}
+	h.authHelper.GenerateAccessCookie(access_token, w)
+	
+	w.Header().Set(constants.JwtHeader, refresh_token)
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)
+
+}
+
+func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.Request) {
+	var accessToken string
+	cookies := r.Cookies()
+
+	for _, cookie := range cookies {
+		if cookie.Name == "access-token" {
+			accessToken = cookie.Value
+		}
+
+		if accessToken == "" {
+			h.responseHelper.SendErrorResponse(w, "Access token is empty", constants.BadRequest, nil)
+		}
+
+		claims, err := h.authHelper.ParseAccessJwtToken(accessToken)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error parsing access token", constants.InternalServerError, err)
+		}
+
+		userId := claims["userId"].(string)
+		departmentId := claims["departmentId"].(string)
+
+		user, err := h.userRepo.FindById(userId)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error finding user", constants.InternalServerError, err)
+		}
+
+		access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error generating access token", constants.InternalServerError, err)
+		}
+
+		h.authHelper.GenerateAccessCookie(access_token, w)
+
+		h.responseHelper.SendSuccessResponse(w, "Access token refreshed successfully", nil)
+	}
 
 }

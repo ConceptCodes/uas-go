@@ -82,7 +82,7 @@ func Run() {
 
 	var OnlyAdmin = []models.Role{models.Admin}
 	// var OnlyUser = []models.Role{models.User}
-	// var General = []models.Role{models.Admin, models.User}
+	var GeneralAccess = []models.Role{models.Admin, models.User}
 
 	//Tenant router
 	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods(http.MethodPost)
@@ -102,6 +102,12 @@ func Run() {
 	// Otp router
 	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods(http.MethodPost)
 	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods(http.MethodPost)
+
+	refreshToken := router.Methods(http.MethodPost).Subrouter()
+	refreshToken.HandleFunc(constants.RefreshTokenEndpoint, userHandler.RefreshAccessTokenHandler)
+	refreshToken.Use(func(next http.Handler) http.Handler {
+		return rbacMiddleware.Authorize(GeneralAccess, next)
+	})
 
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{

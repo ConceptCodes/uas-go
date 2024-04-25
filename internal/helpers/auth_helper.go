@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -124,3 +126,20 @@ func (h *AuthHelper) ValidateOtpCode(target string, otpCode string) error {
 	return nil
 }
 
+func (h *AuthHelper) GenerateAccessCookie(access_token string, w http.ResponseWriter) {
+	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
+	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
+
+	var s = securecookie.New(cookieHashKey, cookieBlockKey)
+
+	if encoded, err := s.Encode("access-token", access_token); err == nil {
+		cookie := &http.Cookie{
+			Name:     "access-token",
+			Value:    encoded,
+			Path:     "/",
+			Secure:   true,
+			HttpOnly: true,
+		}
+		http.SetCookie(w, cookie)
+	}
+}

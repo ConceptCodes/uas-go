@@ -24,6 +24,7 @@ const (
 	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password"
 	OtpSendEndpoint             = ApiPrefix + "/users/otp/send"
 	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
+	RefreshTokenEndpoint        = ApiPrefix + "/users/refresh-token"
 
 	// Messages
 	EntityNotFound             = "%s with %s %s does not exist."
