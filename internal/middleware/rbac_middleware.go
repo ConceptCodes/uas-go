@@ -6,22 +6,24 @@ import (
 	"uas/internal/constants"
 	"uas/internal/helpers"
 	"uas/internal/models"
+	repository "uas/internal/repositories"
 
 	"github.com/rs/zerolog"
 )
 
 type RBACMiddleware struct {
-	log       *zerolog.Logger
-	jwtHelper *helpers.AuthHelper
+	log                *zerolog.Logger
+	jwtHelper          *helpers.AuthHelper
+	departmentRoleRepo repository.DepartmentRoleRepository
 }
 
-func NewRBACMiddleware(log *zerolog.Logger) *RBACMiddleware {
-	return &RBACMiddleware{log: log}
+func NewRBACMiddleware(log *zerolog.Logger, departmentRoleRepo repository.DepartmentRoleRepository) *RBACMiddleware {
+	return &RBACMiddleware{log: log, departmentRoleRepo: departmentRoleRepo}
 }
 
 func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		access_token, err := r.Cookie(constants.AccessTokenCookie)
+		accessToken, err := r.Cookie(constants.AccessTokenCookie)
 
 		if err != nil {
 			m.log.Error().Msgf("Error: %s", err)
@@ -29,7 +31,7 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 			return
 		}
 
-		claims, err := m.jwtHelper.ParseAccessJwtToken(access_token.Value)
+		claims, err := m.jwtHelper.ParseAccessJwtToken(accessToken.Value)
 
 		if err != nil {
 			m.log.Error().Msgf("Error: %s", err)
@@ -37,7 +39,7 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 			return
 		}
 
-		exp_time, err := claims.GetExpirationTime()
+		expTime, err := claims.GetExpirationTime()
 
 		if err != nil {
 			m.log.Error().Msgf("Error: %s", err)
@@ -45,21 +47,36 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 			return
 		}
 
-		if exp_time.Before(time.Now()) {
+		if expTime.Before(time.Now()) {
 			m.log.Error().Msgf("Error: %s", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
 		m.log.Info().Msgf("Access token is valid")
-		user_role := claims["role"].(models.Role)
-		user_id := claims["user_id"].(string)
 
-		r = helpers.SetUserId(r, user_id)
-		r = helpers.SetRole(r, user_role)
+		userId := claims["userId"].(string)
+		departmentId := claims["departmentId"].(string)
+
+		if userId == "" || departmentId == "" {
+			m.log.Error().Msgf("Error: %s", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		departmentRole, err := m.departmentRoleRepo.FindById(departmentId, userId)
+
+		if err != nil {
+			m.log.Error().Msgf("Error: %s", err)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		r = helpers.SetUserId(r, userId)
+		r = helpers.SetRole(r, departmentRole.Role)
 
 		for _, role := range roles {
-			if role == user_role {
+			if role == departmentRole.Role {
 				next.ServeHTTP(w, r)
 				return
 			}

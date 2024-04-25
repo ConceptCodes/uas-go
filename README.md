@@ -139,7 +139,7 @@ curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
     "department_name": "Department Name",
-    "department_id": "c4c2fab4-0a4f-4f8d-924c-611aa4af2fe2"
+    "departmentId": "c4c2fab4-0a4f-4f8d-924c-611aa4af2fe2"
   }' \
   https://localhost:8080/api/v1/tenants
 ```
@@ -147,7 +147,7 @@ curl -X POST \
 {
   "id": "",
   "department_name": "Department Name",
-  "department_id": "826dad3c-ae6d-4603-8190-730cad295035",
+  "departmentId": "826dad3c-ae6d-4603-8190-730cad295035",
   "service_secret": "s2q8%:{ywQOe:NPv_5yr/.*Z"
 }
 ```

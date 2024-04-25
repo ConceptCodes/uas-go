@@ -61,9 +61,16 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 
 	tenant_secret := uuid.New().String()
 
+	hashed_secret, err := h.authHelper.HashPassword(tenant_secret)
+
+	if err != nil {
+		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
+		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
+	}
+
 	tenant := &models.TenantModel{
 		ID:     data.DepartmentID,
-		Secret: tenant_secret,
+		Secret: hashed_secret,
 		Name:   data.DepartmentName,
 	}
 
@@ -74,17 +81,9 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
-	hashed_secret, err := h.authHelper.HashPassword(tenant_secret)
-
-	if err != nil {
-		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
-		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
-	}
-
 	res := &models.OnboardTenantResponse{
 		DepartmentID:   tenant.ID,
 		DepartmentName: tenant.Name,
-		TenantSecret:   hashed_secret,
 	}
 
 	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
@@ -122,6 +121,5 @@ func (h *TenantHandler) DeleteTenantHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Note: if we introduced sessions, we would need to delete all sessions associated with the tenant here
-
 	h.responseHelper.SendSuccessResponse(w, "Tenant deleted successfully", nil)
 }

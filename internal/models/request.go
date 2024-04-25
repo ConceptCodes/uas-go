@@ -7,8 +7,8 @@ type Request struct {
 }
 
 type OnboardTenantRequest struct {
-	DepartmentName string `json:"department_name" validate:"required,noSQLKeywords"`
-	DepartmentID   string `json:"department_id" validate:"required,noSQLKeywords"`
+	DepartmentName string `json:"departmentName" validate:"required,noSQLKeywords"`
+	DepartmentID   string `json:"departmentId" validate:"required,noSQLKeywords"`
 }
 
 type CredentialsLoginRequest struct {
@@ -20,7 +20,7 @@ type RegisterRequest struct {
 	Name        string `json:"name" validate:"required,noSQLKeywords"`
 	Email       string `json:"email" validate:"email,required,noSQLKeywords"`
 	Password    string `json:"password" validate:"required,noSQLKeywords"`
-	PhoneNumber string `json:"phone_number" validate:"required,e164,noSQLKeywords"`
+	PhoneNumber string `json:"phoneNumber" validate:"required,e164,noSQLKeywords"`
 }
 
 type ForgotPasswordRequest struct {
@@ -32,11 +32,11 @@ type ResetPasswordRequest struct {
 }
 
 type SendOtpRequest struct {
-	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
+	PhoneNumber string `json:"phoneNumber" validate:"required,noSQLKeywords"`
 }
 
 type VerifyOtpRequest struct {
-	PhoneNumber string `json:"phone_number" validate:"required,noSQLKeywords"`
+	PhoneNumber string `json:"phoneNumber" validate:"required,noSQLKeywords"`
 	Otp         string `json:"otp" validate:"required,noSQLKeywords,numeric"`
 }
 

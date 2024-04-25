@@ -81,10 +81,10 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
 	}
 
-	user_id := uuid.New().String()
+	userId := uuid.New().String()
 
 	user := models.UserModel{
-		ID:            user_id,
+		ID:            userId,
 		Name:          data.Name,
 		Email:         data.Email,
 		Password:      password_hash,
@@ -98,12 +98,12 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
 	}
 
-	department_id := helpers.GetTenantId(r)
+	departmentId := helpers.GetDepartmentId(r)
 
 	user_role := models.DepartmentRoles{
-		ID:     department_id,
+		ID:     departmentId,
 		Role:   models.User,
-		UserID: user_id,
+		UserID: userId,
 	}
 
 	err = h.departmentRoleRepo.Create(&user_role)
@@ -131,7 +131,7 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 	}
 
 	res := &models.RegisterUserResponse{
-		UserID: user_id,
+		UserID: userId,
 		Name:   data.Name,
 		Email:  data.Email,
 	}
@@ -237,15 +237,15 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.BadRequest, err)
 	}
 
-	department_id := helpers.GetTenantId(r)
-	access_token, err := h.authHelper.GenerateAccessJwtToken(user, department_id)
+	departmentId := helpers.GetDepartmentId(r)
+	access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating access token")
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
 	}
 
-	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, department_id)
+	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, departmentId)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating refresh token")
@@ -462,10 +462,10 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		h.responseHelper.SendErrorResponse(w, "user does not exist", constants.InternalServerError, err)
 	}
 
-	user_id := uuid.New().String()
+	userId := uuid.New().String()
 
 	_user := models.UserModel{
-		ID:          user_id,
+		ID:          userId,
 		PhoneNumber: data.PhoneNumber,
 	}
 
@@ -475,12 +475,12 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		h.responseHelper.SendErrorResponse(w, "Error creating user", constants.InternalServerError, err)
 	}
 
-	department_id := helpers.GetTenantId(r)
+	departmentId := helpers.GetDepartmentId(r)
 
 	user_role := models.DepartmentRoles{
-		ID:     department_id,
+		ID:     departmentId,
 		Role:   models.User,
-		UserID: user_id,
+		UserID: userId,
 	}
 
 	err = h.departmentRoleRepo.Create(&user_role)
@@ -489,14 +489,14 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		h.responseHelper.SendErrorResponse(w, "Error creating user role", constants.InternalServerError, err)
 	}
 
-	access_token, err := h.authHelper.GenerateAccessJwtToken(user, department_id)
+	access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating access token")
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
 	}
 
-	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, department_id)
+	refresh_token, err := h.authHelper.GenerateRefreshJwtToken(user, departmentId)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating refresh token")

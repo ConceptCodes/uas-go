@@ -36,11 +36,12 @@ const (
 	InternalServerErrorMessage = "Internal server error."
 
 	// Queries
-	FindByIdQuery      = "id = ?"
-	FindByEmailQuery   = "email = ?"
-	FindByToken        = "token = ?"
-	FindByUserId       = "user_id = ?"
-	FindByPhoneNumber  = "phone_number = ?"
+	FindByIdQuery     = "id = ?"
+	FindByEmailQuery  = "email = ?"
+	FindByToken       = "token = ?"
+	FindByUserId      = "userId = ?"
+	FindByPhoneNumber = "phone_number = ?"
+	FindByIdAndUserId = "id = ? AND userId = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"
@@ -61,10 +62,11 @@ const (
 	EmailFrom           = "Example <team@%s>"
 	WelcomeEmailSubject = "Welcome to Example!"
 
-	RequestIdCtxKey = "request_id"
-	UserIdCtxKey    = "user_id"
-	TenantIdCtxKey  = "tenant_id"
-	RoleCtxKey      = "role"
+	// Context keys
+	RequestIdCtxKey    = "request_id"
+	UserIdCtxKey       = "userId"
+	DepartmentIdCtxKey = "department_id"
+	RoleCtxKey         = "department_role"
 
 	// Errors
 	HealthCheckError         = "Error while performing health-check for service: %s"

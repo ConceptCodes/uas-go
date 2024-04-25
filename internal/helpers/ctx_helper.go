@@ -12,7 +12,7 @@ type ContextKey string
 const (
 	RequestIDKey ContextKey = constants.RequestIdCtxKey
 	UserId       ContextKey = constants.UserIdCtxKey
-	TenantId     ContextKey = constants.TenantIdCtxKey
+	DepartmentId ContextKey = constants.DepartmentIdCtxKey
 	Role         ContextKey = constants.RoleCtxKey
 )
 
@@ -40,14 +40,14 @@ func GetUserId(r *http.Request) string {
 	return userId.(string)
 }
 
-func SetTenantId(r *http.Request, tenantId string) *http.Request {
+func SetDepartmentId(r *http.Request, departmentId string) *http.Request {
 	ctx := r.Context()
-	ctx = context.WithValue(ctx, TenantId, tenantId)
+	ctx = context.WithValue(ctx, DepartmentId, departmentId)
 	return r.WithContext(ctx)
 }
 
-func GetTenantId(r *http.Request) string {
-	tenantId := r.Context().Value(TenantId)
+func GetDepartmentId(r *http.Request) string {
+	tenantId := r.Context().Value(DepartmentId)
 	if tenantId == nil {
 		return ""
 	}

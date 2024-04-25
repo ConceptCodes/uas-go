@@ -78,7 +78,7 @@ func Run() {
 	router.Use(rateLimitMiddleware.Start)
 	router.Use(middleware.ContentTypeJSON)
 
-	rbacMiddleware := middleware.NewRBACMiddleware(log)
+	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo)
 
 	var OnlyAdmin = []models.Role{models.Admin}
 	// var OnlyUser = []models.Role{models.User}

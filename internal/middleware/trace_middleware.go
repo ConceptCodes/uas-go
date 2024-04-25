@@ -42,7 +42,7 @@ func (m *TraceRequestMiddleware) Start(next http.Handler) http.Handler {
 				m.log.Error().Str(constants.RequestIdCtxKey, requestId).Msgf("Error: %s", err)
 			}
 
-			r = helpers.SetTenantId(r, tenantId)
+			r = helpers.SetDepartmentId(r, tenantId)
 		}
 
 		r = helpers.SetRequestId(r, requestId)

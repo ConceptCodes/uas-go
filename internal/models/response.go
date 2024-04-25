@@ -11,9 +11,8 @@ type ErrorResponse struct {
 }
 
 type OnboardTenantResponse struct {
-	DepartmentID   string `json:"department_id"`
-	DepartmentName string `json:"department_name"`
-	TenantSecret   string `json:"tenant_secret"`
+	DepartmentID   string `json:"departmentId"`
+	DepartmentName string `json:"departmentName"`
 }
 
 type HealthCheckResponse struct {
@@ -22,7 +21,7 @@ type HealthCheckResponse struct {
 }
 
 type RegisterUserResponse struct {
-	UserID string `json:"user_id"`
+	UserID string `json:"userId"`
 	Name   string `json:"name"`
 	Email  string `json:"email"`
 }
