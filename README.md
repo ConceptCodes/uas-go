@@ -138,7 +138,7 @@ curl -X GET \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "department_name": "Department Name",
+    "departmentName": "Department Name",
     "departmentId": "c4c2fab4-0a4f-4f8d-924c-611aa4af2fe2"
   }' \
   https://localhost:8080/api/v1/tenants
@@ -146,9 +146,8 @@ curl -X POST \
 ```json
 {
   "id": "",
-  "department_name": "Department Name",
+  "departmentName": "Department Name",
   "departmentId": "826dad3c-ae6d-4603-8190-730cad295035",
-  "service_secret": "s2q8%:{ywQOe:NPv_5yr/.*Z"
 }
 ```
 
@@ -189,8 +188,8 @@ curl -X POST \
 ```
 ```json
 {
-  "access_token": "eyJhbGciNiIsInR5C..." (JWT token string),
-  "refresh_token": "eyJhbGciNiIsInR4C..." 
+  "accessToken": "eyJhbGciNiIsInR5C..." (JWT token string),
+  "refreshToken": "eyJhbGciNiIsInR4C..." 
 }
 ```
 
@@ -202,7 +201,7 @@ curl -X POST \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "phone_number": ""
+    "phoneNumber": ""
   }' \
   https://localhost:8080/api/v1/users/otp/send
 ```
@@ -220,15 +219,15 @@ curl -X POST \
 curl -X POST \
   -H "Content-Type: application/json" \
   -d '{
-    "phone_number": "",
+    "phoneNumber": "",
     "otp": ""
   }' \
   https://localhost:8080/api/v1/users/otp/verify
 ```
 ```json
 {
-  "access_token": "eyJhbGciNiIsInR5C...",
-  "refresh_token": "eyJhbGciNiIsInR5C..."
+  "accessToken": "eyJhbGciNiIsInR5C...",
+  "refreshToken": "eyJhbGciNiIsInR5C..."
 }
 ```
 
