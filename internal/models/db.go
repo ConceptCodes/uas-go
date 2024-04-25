@@ -1,23 +1,30 @@
 package models
 
 import (
-	"database/sql/driver"
+	"time"
 
 	"gorm.io/gorm"
 )
 
 type Role string
+type AuthModelType string
 
 const (
 	User  Role = "user"
 	Admin Role = "admin"
 )
 
-type TenantModel struct {
+const (
+	ResetPassword AuthModelType = "reset-password"
+	MagicLink     AuthModelType = "magic-link"
+)
+
+type DepartmentModel struct {
 	gorm.Model
-	ID     string `gorm:"primaryKey;type:varchar(36);unique_index"`
-	Name   string `gorm:"type:varchar(100);unique_index"`
-	Secret string `gorm:"type:varchar(36);unique_index"`
+	ID               string           `gorm:"primaryKey;type:varchar(36);unique_index"`
+	Name             string           `gorm:"type:varchar(100);unique_index"`
+	Secret           string           `gorm:"type:varchar(36);unique_index"`
+	DepartmentConfig DepartmentConfig `gorm:"foreignKey:DepartmentID"`
 }
 
 type UserModel struct {
@@ -31,23 +38,27 @@ type UserModel struct {
 }
 
 type DepartmentRoles struct {
+	ID        string `gorm:"primaryKey;type:varchar(36);unique_index"`
+	Role      Role   `gorm:"type:varchar(10);unique_index"`
+	UserID    string `gorm:"primaryKey;type:varchar(36);unique_index"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+type AuthModel struct {
+	UserID    string        `gorm:"type:varchar(36);unique_index"`
+	Token     string        `gorm:"primaryKey;type:varchar(36)"`
+	Type      AuthModelType `gorm:"primaryKey:type:varchar(36);`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
+}
+
+type DepartmentConfig struct {
 	gorm.Model
-	ID     string `gorm:"primaryKey;type:varchar(36);unique_index"`
-	Role   Role   `gorm:"type:varchar(10);unique_index"`
-	UserID string `gorm:"primaryKey;type:varchar(36);unique_index"`
-}
-
-type PasswordResetModel struct {
-	gorm.Model
-	UserID string `gorm:"type:varchar(36);unique_index"`
-	Token  string `gorm:"type:varchar(36);unique_index"`
-}
-
-func (e *Role) Scan(value interface{}) error {
-	*e = Role(value.([]byte))
-	return nil
-}
-
-func (e Role) Value() (driver.Value, error) {
-	return string(e), nil
+	ID               string `gorm:"primaryKey;type:varchar(36);unique_index"`
+	Name             string `gorm:"type:varchar(100);unique_index"`
+	DepartmentID     string `gorm:"type:varchar(36);unique_index"`
+	MagicLinkBaseUrl string `gorm:"type:varchar(100);unique_index"`
 }

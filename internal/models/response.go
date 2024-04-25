@@ -10,7 +10,7 @@ type ErrorResponse struct {
 	ErrorCode string `json:"errorCode"`
 }
 
-type OnboardTenantResponse struct {
+type OnboardDepartmentResponse struct {
 	DepartmentID   string `json:"departmentId"`
 	DepartmentName string `json:"departmentName"`
 }

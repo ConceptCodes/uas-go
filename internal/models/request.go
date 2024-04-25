@@ -44,3 +44,5 @@ type VerifyEmailRequest struct {
 	Email string `json:"email" validate:"email,required,noSQLKeywords"`
 	Otp   string `json:"otp" validate:"required,noSQLKeywords,numeric"`
 }
+
+type MagicLinkEmailRequest = ForgotPasswordRequest

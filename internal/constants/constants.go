@@ -37,12 +37,12 @@ const (
 	InternalServerErrorMessage = "Internal server error."
 
 	// Queries
-	FindByIdQuery     = "id = ?"
-	FindByEmailQuery  = "email = ?"
-	FindByToken       = "token = ?"
-	FindByUserId      = "userId = ?"
-	FindByPhoneNumber = "phone_number = ?"
-	FindByIdAndUserId = "id = ? AND userId = ?"
+	FindByIdQuery           = "id = ?"
+	FindByEmailQuery        = "email = ?"
+	FindByTokenAndTypeQuery = "token = ? AND type = ?"
+	FindByUserIdQuery       = "userId = ?"
+	FindByPhoneNumberQuery  = "phone_number = ?"
+	FindByIdAndUserIdQuery  = "id = ? AND userId = ?"
 
 	// Misc
 	TimeFormat          = "2006-01-02 15:04:05"

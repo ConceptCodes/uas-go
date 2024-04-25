@@ -19,13 +19,13 @@ import (
 )
 
 type AuthHelper struct {
-	log         *zerolog.Logger
-	tenantRepo  repository.TenantRepository
-	redisHelper RedisHelper
+	log            *zerolog.Logger
+	departmentRepo repository.DepartmentRepository
+	redisHelper    RedisHelper
 }
 
-func NewAuthHelper(log *zerolog.Logger, tenantRepo repository.TenantRepository, redisHelper RedisHelper) *AuthHelper {
-	return &AuthHelper{log: log, tenantRepo: tenantRepo, redisHelper: redisHelper}
+func NewAuthHelper(log *zerolog.Logger, departmentRepo repository.DepartmentRepository, redisHelper RedisHelper) *AuthHelper {
+	return &AuthHelper{log: log, departmentRepo: departmentRepo, redisHelper: redisHelper}
 }
 
 func (h *AuthHelper) GenerateBasicAuthToken(tenantId string, tenantSecret string) string {
@@ -51,7 +51,7 @@ func (h *AuthHelper) ValidateBasicAuthToken(token string) (string, error) {
 	tenantId := parts[0]
 	tenantSecret := parts[1]
 
-	tenant, err := h.tenantRepo.FindById(tenantId)
+	tenant, err := h.departmentRepo.FindById(tenantId)
 
 	if err != nil {
 		return "", err
@@ -82,7 +82,7 @@ func (h *AuthHelper) CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
-func (h *AuthHelper) GenerateResetPasswordToken() string {
+func (h *AuthHelper) GenerateAuthToken() string {
 	a := uuid.New().String()
 	b := uuid.New().String()
 

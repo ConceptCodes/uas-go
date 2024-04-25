@@ -231,6 +231,16 @@ curl -X POST \
 }
 ```
 
+---
+
+**Refresh Token**
+
+```sh
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Cookie: <access_token>" \
+  https://localhost:8080/api/v1/users/refresh-token
+```
 
 ### Security Considerations
 
@@ -245,7 +255,7 @@ curl -X POST \
 - [x] Add support for rate limiting
 - [x] Add support for OTP login
 - [ ] Add support for magic link login
-- [ ] Add support for RBAC
+- [x] Add support for RBAC
 - [ ] Add support for audit logging
 
 

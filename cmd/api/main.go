@@ -41,19 +41,19 @@ func Run() {
 	redisClient := redis.New(*log, ctx)
 	twilioClient := twilio.New()
 
-	tenantRepo := repository.NewGormTenantRepository(db)
+	departmentRepo := repository.NewGormDepartmentRepository(db)
 	userRepo := repository.NewGormUserRepository(db)
-	passwordResetRepo := repository.NewGormPasswordResetRepository(db)
+	passwordResetRepo := repository.NewGormAuthRepository(db)
 	departmentRoleRepo := repository.NewGormDepartmentRoleRepository(db)
 
 	redisHelper := helpers.NewRedisHelper(redisClient, log, ctx)
-	authHelper := helpers.NewAuthHelper(log, tenantRepo, *redisHelper)
+	authHelper := helpers.NewAuthHelper(log, departmentRepo, *redisHelper)
 	responseHelper := helpers.NewResponseHelper(log)
 	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
 	emailHelper := helpers.NewEmailHelper(log, emailClient)
 	twilioHelper := helpers.NewTwilioHelper(log, twilioClient)
 
-	tenantHandler := handlers.NewTenantHandler(tenantRepo, log, authHelper, responseHelper, validatorHelper)
+	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(
 		userRepo,
 		passwordResetRepo,
@@ -80,26 +80,23 @@ func Run() {
 
 	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo)
 
-	var OnlyAdmin = []models.Role{models.Admin}
-	// var OnlyUser = []models.Role{models.User}
+	var AdminAccess = []models.Role{models.Admin}
 	var GeneralAccess = []models.Role{models.Admin, models.User}
+	// var UserAccess = []models.Role{models.User}
 
-	//Tenant router
-	router.HandleFunc(constants.OnboardTenantEndpoint, tenantHandler.OnboardTenantHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.OnboardTenantEndpoint, DepartmentHandler.OnboardDepartmentHandler).Methods(http.MethodPost)
 
 	delTenant := router.Methods(http.MethodDelete).Subrouter()
-	delTenant.HandleFunc(constants.DeleteTenantEndpoint, tenantHandler.DeleteTenantHandler)
+	delTenant.HandleFunc(constants.DeleteTenantEndpoint, DepartmentHandler.DeleteDepartmentHandler)
 	delTenant.Use(func(next http.Handler) http.Handler {
-		return rbacMiddleware.Authorize(OnlyAdmin, next)
+		return rbacMiddleware.Authorize(AdminAccess, next)
 	})
 
-	// Credentials router
 	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods(http.MethodPost)
 	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods(http.MethodPost)
 	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
 	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
 
-	// Otp router
 	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods(http.MethodPost)
 	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods(http.MethodPost)
 

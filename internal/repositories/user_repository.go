@@ -50,7 +50,7 @@ func (r *GormUserRepository) Save(user *models.UserModel) error {
 
 func (r *GormUserRepository) FindByPhoneNumber(phoneNumber string) (*models.UserModel, error) {
 	var user models.UserModel
-	if err := r.db.Where(constants.FindByPhoneNumber, phoneNumber).First(&user).Error; err != nil {
+	if err := r.db.Where(constants.FindByPhoneNumberQuery, phoneNumber).First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil

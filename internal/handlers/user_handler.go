@@ -17,8 +17,9 @@ import (
 
 type UserHandler struct {
 	userRepo           repository.UserRepository
-	passwordResetRepo  repository.PasswordResetRepository
+	authRepo           repository.AuthRepository
 	departmentRoleRepo repository.DepartmentRoleRepository
+	departmentRepo     repository.DepartmentRepository
 	log                *zerolog.Logger
 	authHelper         *helpers.AuthHelper
 	responseHelper     *helpers.ResponseHelper
@@ -29,8 +30,9 @@ type UserHandler struct {
 
 func NewUserHandler(
 	userRepo repository.UserRepository,
-	passwordResetRepo repository.PasswordResetRepository,
+	authRepo repository.AuthRepository,
 	departmentRoleRepo repository.DepartmentRoleRepository,
+	departmentRepo repository.DepartmentRepository,
 	log *zerolog.Logger,
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
@@ -40,8 +42,9 @@ func NewUserHandler(
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:           userRepo,
-		passwordResetRepo:  passwordResetRepo,
+		authRepo:           authRepo,
 		departmentRoleRepo: departmentRoleRepo,
+		departmentRepo:     departmentRepo,
 		log:                log,
 		authHelper:         authHelper,
 		responseHelper:     responseHelper,
@@ -181,7 +184,6 @@ func (h *UserHandler) CredentialsVerifyEmailHandler(w http.ResponseWriter, r *ht
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
 	} else {
 		user.EmailVerified = true
-
 		err = h.userRepo.Save(user)
 
 		if err != nil {
@@ -310,20 +312,21 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	reset_token := h.authHelper.GenerateResetPasswordToken()
+	reset_token := h.authHelper.GenerateAuthToken()
 
-	tmp := models.PasswordResetModel{
+	tmp := models.AuthModel{
 		UserID: user.ID,
 		Token:  reset_token,
+		Type: models.ResetPassword,
 	}
 
-	err = h.passwordResetRepo.Create(&tmp)
+	err = h.authRepo.Create(&tmp)
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error sending reset password email", constants.InternalServerError, err)
 	}
 
-	url := fmt.Sprintf("%s%s%s", config.AppConfig.Host, constants.CredentialsResetEndpoint, reset_token)
+	url := fmt.Sprintf("%s?token=%s", r.URL, reset_token)
 
 	tmpl_data := models.ForgotPasswordData{
 		Name: user.Name,
@@ -370,7 +373,7 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
 	}
 
-	record, err := h.passwordResetRepo.FindByToken(token)
+	record, err := h.authRepo.FindByTokenAndType(token, models.ResetPassword)
 
 	if err == nil {
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", "")
@@ -441,6 +444,7 @@ func (h *UserHandler) SendOtpCode(w http.ResponseWriter, r *http.Request) {
 
 func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 	var data models.VerifyOtpRequest
+	var user *models.UserModel
 
 	err := json.NewDecoder(r.Body).Decode(&data)
 
@@ -456,37 +460,37 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		h.responseHelper.SendErrorResponse(w, "Error verifying OTP code", constants.InternalServerError, err)
 	}
 
-	user, err := h.userRepo.FindByPhoneNumber(data.PhoneNumber)
-
-	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "user does not exist", constants.InternalServerError, err)
-	}
-
-	userId := uuid.New().String()
-
-	_user := models.UserModel{
-		ID:          userId,
-		PhoneNumber: data.PhoneNumber,
-	}
-
-	err = h.userRepo.Create(&_user)
-
-	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "Error creating user", constants.InternalServerError, err)
-	}
-
+	user, err = h.userRepo.FindByPhoneNumber(data.PhoneNumber)
 	departmentId := helpers.GetDepartmentId(r)
 
-	user_role := models.DepartmentRoles{
-		ID:     departmentId,
-		Role:   models.User,
-		UserID: userId,
-	}
-
-	err = h.departmentRoleRepo.Create(&user_role)
-
 	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "Error creating user role", constants.InternalServerError, err)
+		h.log.Info().Str("phoneNumber", data.PhoneNumber).Msg("User does not exist")
+
+		userId := uuid.New().String()
+
+		user = &models.UserModel{
+			ID:          userId,
+			PhoneNumber: data.PhoneNumber,
+		}
+
+		err = h.userRepo.Create(user)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error creating user", constants.InternalServerError, err)
+		}
+
+		user_role := models.DepartmentRoles{
+			ID:     departmentId,
+			Role:   models.User,
+			UserID: userId,
+		}
+
+		err = h.departmentRoleRepo.Create(&user_role)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error creating user role", constants.InternalServerError, err)
+		}
+
 	}
 
 	access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
@@ -504,7 +508,7 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.authHelper.GenerateAccessCookie(access_token, w)
-	
+
 	w.Header().Set(constants.JwtHeader, refresh_token)
 
 	h.responseHelper.SendSuccessResponse(w, "OTP code verified successfully", nil)
@@ -548,6 +552,106 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		h.authHelper.GenerateAccessCookie(access_token, w)
 
 		h.responseHelper.SendSuccessResponse(w, "Access token refreshed successfully", nil)
+	}
+
+}
+
+func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request) {
+	var data models.MagicLinkEmailRequest
+	var user *models.UserModel
+
+	err := json.NewDecoder(r.Body).Decode(&data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+	}
+
+	h.validatorHelper.ValidateStruct(w, &data)
+
+	user, err = h.userRepo.FindByEmail(data.Email)
+	departmentId := helpers.GetDepartmentId(r)
+
+	if err != nil {
+		h.log.Info().Str("email", data.Email).Msg("User does not exist")
+
+		userId := uuid.New().String()
+
+		user = &models.UserModel{
+			ID:    userId,
+			Email: data.Email,
+		}
+
+		err = h.userRepo.Create(user)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error creating user", constants.InternalServerError, err)
+		}
+
+		user_role := models.DepartmentRoles{
+			ID:     departmentId,
+			Role:   models.User,
+			UserID: userId,
+		}
+
+		err = h.departmentRoleRepo.Create(&user_role)
+
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Error creating user role", constants.InternalServerError, err)
+		}
+
+	}
+
+	token := h.authHelper.GenerateAuthToken()
+
+	tmp := models.AuthModel{
+		UserID: user.ID,
+		Token:  token,
+		Type: models.MagicLink,
+	}
+
+	err = h.authRepo.Create(&tmp)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+	}
+
+	tmpl_data := models.MagicEmailData{
+		Name: user.Name,
+		Url:  fmt.Sprintf("%s?token=%s", r.URL, token),
+	}
+
+	err = h.emailHelper.SendEmail(data.Email, "magic-link", tmpl_data)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
+	}
+
+	h.responseHelper.SendSuccessResponse(w, "magic link sent to", nil)
+}
+
+func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Request) {
+	params := r.URL.Query()
+	token := params.Get("token")
+
+	if token == "" {
+		h.log.Error().Msg("Token is empty")
+		h.responseHelper.SendErrorResponse(w, "Token is empty", constants.InternalServerError, nil)
+	}
+
+	record, err := h.authRepo.FindByTokenAndType(token, models.MagicLink)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, nil)
+	}
+
+	if token == record.Token {
+		user, err := h.userRepo.FindById(record.UserID)
+
+		if err != nil {
+			err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "id:", record.UserID)
+			h.responseHelper.SendErrorResponse(w, err_message, constants.BadRequest, err)
+		}
+
 	}
 
 }

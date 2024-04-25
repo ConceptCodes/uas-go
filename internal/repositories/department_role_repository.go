@@ -27,7 +27,7 @@ func (r *GormDepartmentRoleRepository) Update(model *models.DepartmentRoles) err
 
 func (r *GormDepartmentRoleRepository) FindById(departmentId string, userId string) (*models.DepartmentRoles, error) {
 	var model models.DepartmentRoles
-	if err := r.db.Where(constants.FindByIdAndUserId, departmentId, userId).First(&model).Error; err != nil {
+	if err := r.db.Where(constants.FindByIdAndUserIdQuery, departmentId, userId).First(&model).Error; err != nil {
 		return nil, err
 	}
 

@@ -13,23 +13,23 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type TenantHandler struct {
-	tenantRepo      repository.TenantRepository
+type DepartmentHandler struct {
+	departmentRepo  repository.DepartmentRepository
 	logger          *zerolog.Logger
 	authHelper      *helpers.AuthHelper
 	responseHelper  *helpers.ResponseHelper
 	validatorHelper *helpers.ValidatorHelper
 }
 
-func NewTenantHandler(
-	tenantRepo repository.TenantRepository,
+func NewDepartmentHandler(
+	departmentRepo repository.DepartmentRepository,
 	logger *zerolog.Logger,
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
 	validatorHelper *helpers.ValidatorHelper,
-) *TenantHandler {
-	return &TenantHandler{
-		tenantRepo:      tenantRepo,
+) *DepartmentHandler {
+	return &DepartmentHandler{
+		departmentRepo:  departmentRepo,
 		logger:          logger,
 		authHelper:      authHelper,
 		responseHelper:  responseHelper,
@@ -37,7 +37,7 @@ func NewTenantHandler(
 	}
 }
 
-// OnboardTenantHandler godoc
+// OnboardDepartmentHandler godoc
 // @Summary Onboard Tenant
 // @Description Onboard Tenant
 // @Tags Tenant
@@ -48,7 +48,7 @@ func NewTenantHandler(
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /tenants [post]
-func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Request) {
+func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *http.Request) {
 	var data models.OnboardTenantRequest
 
 	err := json.NewDecoder(r.Body).Decode(&data)
@@ -59,40 +59,40 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 
 	h.validatorHelper.ValidateStruct(w, &data)
 
-	tenant_secret := uuid.New().String()
+	secret := uuid.New().String()
 
-	hashed_secret, err := h.authHelper.HashPassword(tenant_secret)
+	hashed_secret, err := h.authHelper.HashPassword(secret)
 
 	if err != nil {
-		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
+		message := fmt.Sprintf(constants.CreateEntityError, "Department")
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
-	tenant := &models.TenantModel{
+	department := &models.DepartmentModel{
 		ID:     data.DepartmentID,
 		Secret: hashed_secret,
 		Name:   data.DepartmentName,
 	}
 
-	err = h.tenantRepo.Create(tenant)
+	err = h.departmentRepo.Create(department)
 
 	if err != nil {
-		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
+		message := fmt.Sprintf(constants.CreateEntityError, "Department")
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
 	}
 
-	res := &models.OnboardTenantResponse{
-		DepartmentID:   tenant.ID,
-		DepartmentName: tenant.Name,
+	res := &models.OnboardDepartmentResponse{
+		DepartmentID:   department.ID,
+		DepartmentName: department.Name,
 	}
 
-	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(tenant.ID, tenant.Secret))
+	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(department.ID, department.Secret))
 
 	w.Header().Set(constants.AuthorizationHeader, token)
-	h.responseHelper.SendSuccessResponse(w, "Tenant onboarded successfully", res)
+	h.responseHelper.SendSuccessResponse(w, "Department onboarded successfully", res)
 }
 
-// DeleteTenantHandler godoc
+// DeleteDepartmentHandler godoc
 // @Summary Delete Tenant
 // @Description Delete Tenant
 // @Tags Tenant
@@ -104,7 +104,7 @@ func (h *TenantHandler) OnboardTenantHandler(w http.ResponseWriter, r *http.Requ
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
 // @Router /tenants/{id} [delete]
-func (h *TenantHandler) DeleteTenantHandler(w http.ResponseWriter, r *http.Request) {
+func (h *DepartmentHandler) DeleteDepartmentHandler(w http.ResponseWriter, r *http.Request) {
 	vars := r.URL.Query()
 	tenant_id := vars.Get("id")
 
@@ -113,7 +113,7 @@ func (h *TenantHandler) DeleteTenantHandler(w http.ResponseWriter, r *http.Reque
 		h.responseHelper.SendErrorResponse(w, message, constants.NotFound, nil)
 	}
 
-	err := h.tenantRepo.Delete(tenant_id)
+	err := h.departmentRepo.Delete(tenant_id)
 
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")

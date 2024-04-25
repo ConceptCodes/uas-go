@@ -9,3 +9,5 @@ type VerifyEmailData struct {
 	Name string
 	Otp  string
 }
+
+type MagicEmailData = ForgotPasswordData
