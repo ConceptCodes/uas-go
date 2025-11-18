@@ -4,14 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"uas/config"
 	"uas/internal/constants"
 	"uas/internal/helpers"
 	"uas/internal/models"
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/securecookie"
 	"github.com/rs/zerolog"
 )
 
@@ -26,6 +24,7 @@ type UserHandler struct {
 	validatorHelper    *helpers.ValidatorHelper
 	emailHelper        *helpers.EmailHelper
 	twilioHelper       *helpers.TwilioHelper
+	loginAttemptHelper *helpers.LoginAttemptHelper
 }
 
 func NewUserHandler(
@@ -39,6 +38,7 @@ func NewUserHandler(
 	validatorHelper *helpers.ValidatorHelper,
 	emailHelper *helpers.EmailHelper,
 	twilioHelper *helpers.TwilioHelper,
+	loginAttemptHelper *helpers.LoginAttemptHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:           userRepo,
@@ -51,6 +51,7 @@ func NewUserHandler(
 		validatorHelper:    validatorHelper,
 		emailHelper:        emailHelper,
 		twilioHelper:       twilioHelper,
+		loginAttemptHelper: loginAttemptHelper,
 	}
 }
 
@@ -217,26 +218,54 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 
 	h.validatorHelper.ValidateStruct(w, &data)
 
+	locked, err := h.loginAttemptHelper.IsAccountLocked(data.Email)
+	if err != nil {
+		h.log.Error().Err(err).Msg("Error checking account lock status")
+		h.responseHelper.SendErrorResponse(w, "Internal server error", constants.InternalServerError, err)
+		return
+	}
+
+	if locked {
+		h.log.Warn().Str("email", data.Email).Msg("Login attempt for locked account")
+		h.responseHelper.SendErrorResponse(w, "Account temporarily locked due to too many failed login attempts", constants.BadRequest, nil)
+		return
+	}
+
 	user, err := h.userRepo.FindByEmail(data.Email)
 
 	if err != nil {
+		h.log.Error().Err(err).Str("email", data.Email).Msg("Error finding user")
+		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+		return
 	}
 
 	if user == nil {
+		h.log.Info().Str("email", data.Email).Msg("User not found")
+		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
-	} else {
-		if !user.EmailVerified {
-			h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
-		}
+		return
+	}
+
+	if !user.EmailVerified {
+		h.log.Info().Str("email", data.Email).Msg("Email not verified")
+		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
+		h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
+		return
 	}
 
 	valid := h.authHelper.CheckPasswordHash(data.Password, user.Password)
 
 	if !valid {
+		h.log.Info().Str("email", data.Email).Msg("Invalid password")
+		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
+		attemptCount, _ := h.loginAttemptHelper.GetFailedAttemptCount(data.Email)
+		delay := h.loginAttemptHelper.GetProgressiveDelay(attemptCount)
+		h.loginAttemptHelper.ApplyProgressiveDelay(r.Context(), delay)
 		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.BadRequest, err)
+		return
 	}
 
 	departmentId := helpers.GetDepartmentId(r)
@@ -254,23 +283,9 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.InternalServerError, err)
 	}
 
-	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
-	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
-
-	var s = securecookie.New(cookieHashKey, cookieBlockKey)
-
-	if encoded, err := s.Encode("access-token", access_token); err == nil {
-		cookie := &http.Cookie{
-			Name:     "access-token",
-			Value:    encoded,
-			Path:     "/",
-			Secure:   true,
-			HttpOnly: true,
-		}
-		http.SetCookie(w, cookie)
-		w.Header().Set(constants.JwtHeader, refresh_token)
-	}
-
+	h.loginAttemptHelper.ClearFailedAttempts(data.Email)
+	h.authHelper.GenerateAccessCookie(access_token, w)
+	w.Header().Set(constants.JwtHeader, refresh_token)
 	h.responseHelper.SendSuccessResponse(w, "Successful login", nil)
 }
 

@@ -40,6 +40,14 @@ type Config struct {
 
 	CookieBlockKey string `env:"COOKIE_BLOCK_KEY" envDefault:"CHANGE_ME_COOKIE_BLOCK_MIN_32_CHARS"`
 	CookieHashKey  string `env:"COOKIE_HASH_KEY" envDefault:"CHANGE_ME_COOKIE_HASH_MIN_32_CHARS"`
+	CookieDomain   string `env:"COOKIE_DOMAIN" envDefault:""`
+	CookieSecure   bool   `env:"COOKIE_SECURE" envDefault:"true"`
+	CookieSameSite string `env:"COOKIE_SAMESITE" envDefault:"Strict"`
+
+	MaxFailedAttempts  int `env:"MAX_FAILED_ATTEMPTS" envDefault:"5"`
+	AccountLockMinutes int `env:"ACCOUNT_LOCK_MINUTES" envDefault:"15"`
+	LoginRateLimitMins int `env:"LOGIN_RATE_LIMIT_MINUTES" envDefault:"1"`
+	OtpRateLimitMins   int `env:"OTP_RATE_LIMIT_MINUTES" envDefault:"5"`
 
 	TwilioAccountSid  string `env:"TWILIO_ACCOUNT_SID" envDefault:"twilio_account_sid"`
 	TwilioAuthToken   string `env:"TWILIO_AUTH_TOKEN" envDefault:"twilio_auth_token"`

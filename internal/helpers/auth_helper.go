@@ -133,12 +133,20 @@ func (h *AuthHelper) GenerateAccessCookie(access_token string, w http.ResponseWr
 	var s = securecookie.New(cookieHashKey, cookieBlockKey)
 
 	if encoded, err := s.Encode("access-token", access_token); err == nil {
+		sameSite := http.SameSiteStrictMode
+		if config.AppConfig.CookieSameSite == "Lax" {
+			sameSite = http.SameSiteLaxMode
+		}
+
 		cookie := &http.Cookie{
 			Name:     "access-token",
 			Value:    encoded,
 			Path:     "/",
-			Secure:   true,
+			Domain:   config.AppConfig.CookieDomain,
+			MaxAge:   config.AppConfig.AccessJwtExpire * 3600,
+			Secure:   config.AppConfig.CookieSecure,
 			HttpOnly: true,
+			SameSite: sameSite,
 		}
 		http.SetCookie(w, cookie)
 	}

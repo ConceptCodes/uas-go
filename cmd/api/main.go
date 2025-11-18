@@ -52,6 +52,7 @@ func Run() {
 	validatorHelper := helpers.NewValidatorHelper(log, responseHelper)
 	emailHelper := helpers.NewEmailHelper(log, emailClient)
 	twilioHelper := helpers.NewTwilioHelper(log, twilioClient)
+	loginAttemptHelper := helpers.NewLoginAttemptHelper(redisHelper, log)
 
 	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(
@@ -65,6 +66,7 @@ func Run() {
 		validatorHelper,
 		emailHelper,
 		twilioHelper,
+		loginAttemptHelper,
 	)
 
 	router := mux.NewRouter()
@@ -84,6 +86,12 @@ func Run() {
 	router.Use(middleware.ContentTypeJSON)
 
 	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo, authHelper)
+	endpointRateLimitMiddleware := middleware.NewEndpointRateLimitMiddleware(log, redisClient)
+
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsRegisterEndpoint, 5, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsLoginEndpoint, 5, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpSendEndpoint, 3, "phone")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpVerifyEndpoint, 5, "phone")
 
 	var AdminAccess = []models.Role{models.Admin}
 	var GeneralAccess = []models.Role{models.Admin, models.User}
@@ -97,13 +105,24 @@ func Run() {
 		return rbacMiddleware.Authorize(AdminAccess, next)
 	})
 
-	router.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods(http.MethodPost)
-	router.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods(http.MethodPost)
+	registerSub := router.Methods(http.MethodPost).Subrouter()
+	registerSub.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler)
+	registerSub.Use(endpointRateLimitMiddleware.Start)
+
+	loginSub := router.Methods(http.MethodPost).Subrouter()
+	loginSub.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler)
+	loginSub.Use(endpointRateLimitMiddleware.Start)
+
 	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
 	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
 
-	router.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods(http.MethodPost)
-	router.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods(http.MethodPost)
+	otpSendSub := router.Methods(http.MethodPost).Subrouter()
+	otpSendSub.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode)
+	otpSendSub.Use(endpointRateLimitMiddleware.Start)
+
+	otpVerifySub := router.Methods(http.MethodPost).Subrouter()
+	otpVerifySub.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode)
+	otpVerifySub.Use(endpointRateLimitMiddleware.Start)
 
 	refreshToken := router.Methods(http.MethodPost).Subrouter()
 	refreshToken.HandleFunc(constants.RefreshTokenEndpoint, userHandler.RefreshAccessTokenHandler)
