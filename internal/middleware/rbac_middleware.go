@@ -13,12 +13,12 @@ import (
 
 type RBACMiddleware struct {
 	log                *zerolog.Logger
-	jwtHelper          *helpers.AuthHelper
+	authHelper         *helpers.AuthHelper
 	departmentRoleRepo repository.DepartmentRoleRepository
 }
 
-func NewRBACMiddleware(log *zerolog.Logger, departmentRoleRepo repository.DepartmentRoleRepository) *RBACMiddleware {
-	return &RBACMiddleware{log: log, departmentRoleRepo: departmentRoleRepo}
+func NewRBACMiddleware(log *zerolog.Logger, departmentRoleRepo repository.DepartmentRoleRepository, authHelper *helpers.AuthHelper) *RBACMiddleware {
+	return &RBACMiddleware{log: log, departmentRoleRepo: departmentRoleRepo, authHelper: authHelper}
 }
 
 func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.Handler {
@@ -31,7 +31,7 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 			return
 		}
 
-		claims, err := m.jwtHelper.ParseAccessJwtToken(accessToken.Value)
+		claims, err := m.authHelper.ParseAccessJwtToken(accessToken.Value)
 
 		if err != nil {
 			m.log.Error().Msgf("Error: %s", err)

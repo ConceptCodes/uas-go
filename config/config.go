@@ -29,17 +29,17 @@ type Config struct {
 	EmailFrom         string `env:"EMAIL_FROM" envDefault:"example@gmail.com"`
 	ResendEmailDomain string `env:"RESEND_EMAIL_DOMAIN" envDefault:"resend.dev"`
 
-	RefreshJwtSecret string `env:"REFRESH_JWT_SECRET" envDefault:"refresh_jwt_secret"`
+	RefreshJwtSecret string `env:"REFRESH_JWT_SECRET" envDefault:"CHANGE_ME_REFRESH_SECRET_MIN_32_CHARS"`
 	RefreshJwtExpire int    `env:"REFRESH_JWT_EXPIRE" envDefault:"24"`
 
-	AccessJwtSecret string `env:"ACCESS_JWT_SECRET" envDefault:"access_jwt_secret"`
+	AccessJwtSecret string `env:"ACCESS_JWT_SECRET" envDefault:"CHANGE_ME_ACCESS_SECRET_MIN_32_CHARS"`
 	AccessJwtExpire int    `env:"ACCESS_JWT_EXPIRE" envDefault:"15"`
 
 	RateLimitCapacity int `env:"RATE_LIMIT_CAPACITY" envDefault:"100"`
 	TimeUnitInSeconds int `env:"TIME_UNIT_IN_SECONDS" envDefault:"60"`
 
-	CookieBlockKey string `env:COOKIE_BLOCK_KEY" envDefault:"cookie_block_key"`
-	CookieHashKey  string `env:COOKIE_HASH_KEY" envDefault:"cookie_hash_key"`
+	CookieBlockKey string `env:"COOKIE_BLOCK_KEY" envDefault:"CHANGE_ME_COOKIE_BLOCK_MIN_32_CHARS"`
+	CookieHashKey  string `env:"COOKIE_HASH_KEY" envDefault:"CHANGE_ME_COOKIE_HASH_MIN_32_CHARS"`
 
 	TwilioAccountSid  string `env:"TWILIO_ACCOUNT_SID" envDefault:"twilio_account_sid"`
 	TwilioAuthToken   string `env:"TWILIO_AUTH_TOKEN" envDefault:"twilio_auth_token"`

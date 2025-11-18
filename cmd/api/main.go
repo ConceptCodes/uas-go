@@ -58,6 +58,7 @@ func Run() {
 		userRepo,
 		passwordResetRepo,
 		departmentRoleRepo,
+		departmentRepo,
 		log,
 		authHelper,
 		responseHelper,
@@ -76,9 +77,13 @@ func Run() {
 
 	rateLimitMiddleware := middleware.NewRateLimitRequestMiddleware(log, redisClient)
 	router.Use(rateLimitMiddleware.Start)
+
+	securityHeadersMiddleware := middleware.NewSecurityHeadersMiddleware(log)
+	router.Use(securityHeadersMiddleware.Start)
+
 	router.Use(middleware.ContentTypeJSON)
 
-	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo)
+	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo, authHelper)
 
 	var AdminAccess = []models.Role{models.Admin}
 	var GeneralAccess = []models.Role{models.Admin, models.User}

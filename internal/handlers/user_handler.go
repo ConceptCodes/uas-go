@@ -317,7 +317,7 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	tmp := models.AuthModel{
 		UserID: user.ID,
 		Token:  reset_token,
-		Type: models.ResetPassword,
+		Type:   models.ResetPassword,
 	}
 
 	err = h.authRepo.Create(&tmp)
@@ -606,7 +606,7 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 	tmp := models.AuthModel{
 		UserID: user.ID,
 		Token:  token,
-		Type: models.MagicLink,
+		Type:   models.MagicLink,
 	}
 
 	err = h.authRepo.Create(&tmp)
@@ -645,7 +645,7 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 	}
 
 	if token == record.Token {
-		user, err := h.userRepo.FindById(record.UserID)
+		_, err := h.userRepo.FindById(record.UserID)
 
 		if err != nil {
 			err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "id:", record.UserID)

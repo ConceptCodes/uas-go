@@ -12,7 +12,7 @@ import (
 func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant string) (string, error) {
 	h.log.Debug().Msgf("Generating JWT token for user: %s", user.Name)
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":           user.ID,
+		"userId":       user.ID,
 		"name":         user.Name,
 		"email":        user.Email,
 		"departmentId": tenant,
@@ -48,7 +48,7 @@ func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, err
 func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant string) (string, error) {
 	h.log.Debug().Msgf("Generating JWT token for user: %s", user.Name)
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":           user.ID,
+		"userId":       user.ID,
 		"departmentId": tenant,
 		"exp":          time.Now().Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
 	})
