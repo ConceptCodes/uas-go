@@ -62,3 +62,39 @@ type DepartmentConfig struct {
 	DepartmentID     string `gorm:"type:varchar(36);unique_index"`
 	MagicLinkBaseUrl string `gorm:"type:varchar(100);unique_index"`
 }
+
+type PasswordHistory struct {
+	gorm.Model
+	ID           string `gorm:"primaryKey;type:varchar(36)"`
+	UserID       string `gorm:"type:varchar(36);index"`
+	PasswordHash string `gorm:"type:varchar(255)"`
+	CreatedAt    time.Time
+}
+
+type SecurityEvent struct {
+	gorm.Model
+	ID           string    `gorm:"primaryKey;type:varchar(36)"`
+	EventType    string    `gorm:"type:varchar(50);index"`
+	UserID       string    `gorm:"type:varchar(36);index"`
+	DepartmentID string    `gorm:"type:varchar(36);index"`
+	IPAddress    string    `gorm:"type:varchar(45)"`
+	UserAgent    string    `gorm:"type:text"`
+	Status       string    `gorm:"type:varchar(20)"`
+	ErrorMessage string    `gorm:"type:text"`
+	RequestID    string    `gorm:"type:varchar(36)"`
+	CreatedAt    time.Time `gorm:"index"`
+}
+
+type Session struct {
+	gorm.Model
+	ID           string `gorm:"primaryKey;type:varchar(36)"`
+	UserID       string `gorm:"type:varchar(36);index"`
+	DepartmentID string `gorm:"type:varchar(36)"`
+	RefreshToken string `gorm:"type:varchar(500);unique"`
+	IPAddress    string `gorm:"type:varchar(45)"`
+	UserAgent    string `gorm:"type:text"`
+	ExpiresAt    time.Time
+	RevokedAt    *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}

@@ -45,6 +45,9 @@ func Run() {
 	userRepo := repository.NewGormUserRepository(db)
 	passwordResetRepo := repository.NewGormAuthRepository(db)
 	departmentRoleRepo := repository.NewGormDepartmentRoleRepository(db)
+	passwordHistoryRepo := repository.NewGormPasswordHistoryRepository(db)
+	securityAuditRepo := repository.NewGormSecurityAuditRepository(db)
+	sessionRepo := repository.NewGormSessionRepository(db)
 
 	redisHelper := helpers.NewRedisHelper(redisClient, log, ctx)
 	authHelper := helpers.NewAuthHelper(log, departmentRepo, *redisHelper)
@@ -53,6 +56,12 @@ func Run() {
 	emailHelper := helpers.NewEmailHelper(log, emailClient)
 	twilioHelper := helpers.NewTwilioHelper(log, twilioClient)
 	loginAttemptHelper := helpers.NewLoginAttemptHelper(redisHelper, log)
+	passwordHelper := helpers.NewPasswordHelper(log)
+	securityLoggerHelper := helpers.NewSecurityLoggerHelper(log, securityAuditRepo)
+	tokenHelper := helpers.NewTokenHelper(log, redisHelper)
+	_ = sessionRepo
+	_ = tokenHelper
+	_ = securityLoggerHelper
 
 	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(
@@ -60,6 +69,7 @@ func Run() {
 		passwordResetRepo,
 		departmentRoleRepo,
 		departmentRepo,
+		passwordHistoryRepo,
 		log,
 		authHelper,
 		responseHelper,
@@ -67,6 +77,7 @@ func Run() {
 		emailHelper,
 		twilioHelper,
 		loginAttemptHelper,
+		passwordHelper,
 	)
 
 	router := mux.NewRouter()
@@ -82,6 +93,9 @@ func Run() {
 
 	securityHeadersMiddleware := middleware.NewSecurityHeadersMiddleware(log)
 	router.Use(securityHeadersMiddleware.Start)
+
+	requestSizeMiddleware := middleware.NewRequestSizeMiddleware(log)
+	router.Use(requestSizeMiddleware.Start)
 
 	router.Use(middleware.ContentTypeJSON)
 

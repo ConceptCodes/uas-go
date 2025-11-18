@@ -54,6 +54,15 @@ type Config struct {
 	TwilioPhoneNumber string `env:"TWILIO_PHONE_NUMBER" envDefault:"twilio_phone_number"`
 
 	OtpExpire int `env:"OTP_EXPIRE" envDefault:"5"`
+
+	PasswordMinLength        int  `env:"PASSWORD_MIN_LENGTH" envDefault:"12"`
+	PasswordRequireUppercase bool `env:"PASSWORD_REQUIRE_UPPERCASE" envDefault:"true"`
+	PasswordRequireLowercase bool `env:"PASSWORD_REQUIRE_LOWERCASE" envDefault:"true"`
+	PasswordRequireNumber    bool `env:"PASSWORD_REQUIRE_NUMBER" envDefault:"true"`
+	PasswordRequireSpecial   bool `env:"PASSWORD_REQUIRE_SPECIAL" envDefault:"true"`
+	PasswordHistoryCount     int  `env:"PASSWORD_HISTORY_COUNT" envDefault:"5"`
+
+	MaxRequestSizeMB int `env:"MAX_REQUEST_SIZE_MB" envDefault:"10"`
 }
 
 var AppConfig = Config{}

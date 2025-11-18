@@ -3,6 +3,8 @@ package helpers
 import (
 	"fmt"
 	"net/http"
+	"net/mail"
+	"regexp"
 	"strings"
 
 	"uas/internal/constants"
@@ -21,6 +23,8 @@ type ValidatorHelper struct {
 func init() {
 	validate = validator.New(validator.WithRequiredStructEnabled())
 	validate.RegisterValidation("noSQLKeywords", noSQLKeywords)
+	validate.RegisterValidation("validEmail", validEmail)
+	validate.RegisterValidation("validPhone", validPhone)
 }
 
 func NewValidatorHelper(log *zerolog.Logger, responseHelper *ResponseHelper) *ValidatorHelper {
@@ -37,6 +41,24 @@ func noSQLKeywords(fl validator.FieldLevel) bool {
 		}
 	}
 	return true
+}
+
+func validEmail(fl validator.FieldLevel) bool {
+	email := fl.Field().String()
+	if email == "" {
+		return true
+	}
+	_, err := mail.ParseAddress(email)
+	return err == nil
+}
+
+func validPhone(fl validator.FieldLevel) bool {
+	phone := fl.Field().String()
+	if phone == "" {
+		return true
+	}
+	phoneRegex := regexp.MustCompile(`^\+?[1-9]\d{1,14}$`)
+	return phoneRegex.MatchString(phone)
 }
 
 func (v *ValidatorHelper) ValidateStruct(w http.ResponseWriter, s interface{}) {

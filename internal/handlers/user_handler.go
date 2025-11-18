@@ -14,17 +14,19 @@ import (
 )
 
 type UserHandler struct {
-	userRepo           repository.UserRepository
-	authRepo           repository.AuthRepository
-	departmentRoleRepo repository.DepartmentRoleRepository
-	departmentRepo     repository.DepartmentRepository
-	log                *zerolog.Logger
-	authHelper         *helpers.AuthHelper
-	responseHelper     *helpers.ResponseHelper
-	validatorHelper    *helpers.ValidatorHelper
-	emailHelper        *helpers.EmailHelper
-	twilioHelper       *helpers.TwilioHelper
-	loginAttemptHelper *helpers.LoginAttemptHelper
+	userRepo            repository.UserRepository
+	authRepo            repository.AuthRepository
+	departmentRoleRepo  repository.DepartmentRoleRepository
+	departmentRepo      repository.DepartmentRepository
+	passwordHistoryRepo repository.PasswordHistoryRepository
+	log                 *zerolog.Logger
+	authHelper          *helpers.AuthHelper
+	responseHelper      *helpers.ResponseHelper
+	validatorHelper     *helpers.ValidatorHelper
+	emailHelper         *helpers.EmailHelper
+	twilioHelper        *helpers.TwilioHelper
+	loginAttemptHelper  *helpers.LoginAttemptHelper
+	passwordHelper      *helpers.PasswordHelper
 }
 
 func NewUserHandler(
@@ -32,6 +34,7 @@ func NewUserHandler(
 	authRepo repository.AuthRepository,
 	departmentRoleRepo repository.DepartmentRoleRepository,
 	departmentRepo repository.DepartmentRepository,
+	passwordHistoryRepo repository.PasswordHistoryRepository,
 	log *zerolog.Logger,
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
@@ -39,19 +42,22 @@ func NewUserHandler(
 	emailHelper *helpers.EmailHelper,
 	twilioHelper *helpers.TwilioHelper,
 	loginAttemptHelper *helpers.LoginAttemptHelper,
+	passwordHelper *helpers.PasswordHelper,
 ) *UserHandler {
 	return &UserHandler{
-		userRepo:           userRepo,
-		authRepo:           authRepo,
-		departmentRoleRepo: departmentRoleRepo,
-		departmentRepo:     departmentRepo,
-		log:                log,
-		authHelper:         authHelper,
-		responseHelper:     responseHelper,
-		validatorHelper:    validatorHelper,
-		emailHelper:        emailHelper,
-		twilioHelper:       twilioHelper,
-		loginAttemptHelper: loginAttemptHelper,
+		userRepo:            userRepo,
+		authRepo:            authRepo,
+		departmentRoleRepo:  departmentRoleRepo,
+		departmentRepo:      departmentRepo,
+		passwordHistoryRepo: passwordHistoryRepo,
+		log:                 log,
+		authHelper:          authHelper,
+		responseHelper:      responseHelper,
+		validatorHelper:     validatorHelper,
+		emailHelper:         emailHelper,
+		twilioHelper:        twilioHelper,
+		loginAttemptHelper:  loginAttemptHelper,
+		passwordHelper:      passwordHelper,
 	}
 }
 
@@ -77,12 +83,23 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 
 	h.validatorHelper.ValidateStruct(w, &data)
 
+	if err := h.passwordHelper.ValidateComplexity(data.Password); err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		return
+	}
+
+	if h.passwordHelper.CheckCommonPassword(data.Password) {
+		h.responseHelper.SendErrorResponse(w, "Password is too common", constants.BadRequest, nil)
+		return
+	}
+
 	password_hash, err := h.authHelper.HashPassword(data.Password)
 	err_message := fmt.Sprintf(constants.CreateEntityError, "User")
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error hashing password")
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+		return
 	}
 
 	userId := uuid.New().String()
@@ -386,6 +403,17 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		return
+	}
+
+	if err := h.passwordHelper.ValidateComplexity(data.Password); err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		return
+	}
+
+	if h.passwordHelper.CheckCommonPassword(data.Password) {
+		h.responseHelper.SendErrorResponse(w, "Password is too common", constants.BadRequest, nil)
+		return
 	}
 
 	record, err := h.authRepo.FindByTokenAndType(token, models.ResetPassword)
@@ -393,6 +421,7 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 	if err == nil {
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", "")
 		h.responseHelper.SendErrorResponse(w, err_message, constants.BadRequest, err)
+		return
 	}
 
 	if token == record.Token {
@@ -401,6 +430,7 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 		if err != nil {
 			err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "id:", record.UserID)
 			h.responseHelper.SendErrorResponse(w, err_message, constants.BadRequest, err)
+			return
 		}
 
 		password_hash, err := h.authHelper.HashPassword(data.Password)
@@ -408,6 +438,7 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 		if err != nil {
 			h.log.Error().Err(err).Msg("Error hashing password")
 			h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
+			return
 		}
 
 		user.Password = password_hash
@@ -416,10 +447,12 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 
 		if err != nil {
 			h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
+			return
 		}
 
 	} else {
 		h.responseHelper.SendErrorResponse(w, "Invalid token", constants.BadRequest, nil)
+		return
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
