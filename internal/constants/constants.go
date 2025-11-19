@@ -11,6 +11,41 @@ const (
 	Unauthorized        = "UAS-401"
 	Forbidden           = "UAS-403"
 	InternalServerError = "UAS-500"
+	ErrInternalServer   = "UAS-500"
+	ErrForbidden        = "UAS-403"
+
+	// Enhanced error codes
+	ValidationError    = "UAS-VALIDATION"
+	Conflict           = "UAS-CONFLICT"
+	RateLimited        = "UAS-RATE_LIMIT"
+	ServiceUnavailable = "UAS-SERVICE_UNAVAILABLE"
+	AccountLocked      = "UAS-ACCOUNT_LOCKED"
+	EmailNotVerified   = "UAS-EMAIL_NOT_VERIFIED"
+	InvalidCredentials = "UAS-INVALID_CREDENTIALS"
+	TokenExpired       = "UAS-TOKEN_EXPIRED"
+	TokenInvalid       = "UAS-TOKEN_INVALID"
+	DatabaseError      = "UAS-DATABASE_ERROR"
+	NetworkError       = "UAS-NETWORK_ERROR"
+	EncryptionError    = "UAS-ENCRYPTION_ERROR"
+
+	// Error messages
+	MsgNotFound            = "Resource not found"
+	MsgBadRequest          = "Bad request"
+	MsgUnauthorized        = "Unauthorized access"
+	MsgForbidden           = "Access forbidden"
+	MsgInternalServerError = "Internal server error"
+	MsgValidationError     = "Request validation failed"
+	MsgConflict            = "Resource conflict"
+	MsgRateLimited         = "Rate limit exceeded"
+	MsgServiceUnavailable  = "Service temporarily unavailable"
+	MsgAccountLocked       = "Account temporarily locked"
+	MsgEmailNotVerified    = "Email address not verified"
+	MsgInvalidCredentials  = "Invalid credentials provided"
+	MsgTokenExpired        = "Authentication token has expired"
+	MsgTokenInvalid        = "Invalid authentication token"
+	MsgDatabaseError       = "Database operation failed"
+	MsgNetworkError        = "Network operation failed"
+	MsgEncryptionError     = "Data encryption/decryption failed"
 
 	// Endpoints
 	ApiPrefix                   = "/api/v1"
@@ -26,15 +61,16 @@ const (
 	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
 	RefreshTokenEndpoint        = ApiPrefix + "/users/refresh-token"
 
-	// Messages
-	EntityNotFound             = "%s with %s %s does not exist."
-	GetEntityByIdMessage       = "Found %s with id %d."
-	SaveEntityError            = "Error while saving %s."
-	SuccessMessage             = "You have successfully %s!"
-	CreateEntityError          = "Error while creating %s."
-	CreateEntityMessage        = "Created %s successfully."
-	OtpCodeMessage             = "Your OTP code is %s."
-	InternalServerErrorMessage = "Internal server error."
+	// Context keys
+	RequestIdCtxKey    = "request_id"
+	UserIdCtxKey       = "userId"
+	DepartmentIdCtxKey = "department_id"
+	RoleCtxKey         = "department_role"
+
+	// Headers
+	AuthorizationHeader = "Authorization"
+	JwtHeader           = "x-jwt-token"
+	AccessTokenCookie   = "access-token"
 
 	// Queries
 	FindByIdQuery           = "id = ?"
@@ -44,34 +80,29 @@ const (
 	FindByPhoneNumberQuery  = "phone_number = ?"
 	FindByIdAndUserIdQuery  = "id = ? AND userId = ?"
 
-	// Misc
-	TimeFormat          = "2006-01-02 15:04:05"
-	TraceIdHeader       = "x-trace-id"
-	AuthorizationHeader = "Authorization"
-	JwtHeader           = "x-jwt-token"
-	AccessTokenCookie   = "access-token"
-	HealthCheckMessage  = "Performing health-check for service: %s"
-	DBTablePrefix       = "uas_%s"
-	LocalEnv            = "local"
-	DevelopmentEnv      = "development"
-	ProductionEnv       = "prod"
-	StartMessage        = "Starting API Service on PORT=%s | ENV=%s"
-	DefaultRedisTtl     = 1 * time.Hour
+	// Messages
+	EntityNotFound             = "%s with %s %s does not exist."
+	GetEntityByIdMessage       = "Found %s with id %d."
+	SaveEntityError            = "Error while saving %s."
+	CreateEntityError          = "Error while creating %s."
+	CreateEntityMessage        = "Created %s successfully."
+	OtpCodeMessage             = "Your OTP code is %s."
+	InternalServerErrorMessage = "Internal server error."
+	HealthCheckMessage         = "Performing health-check for service: %s"
+	HealthCheckError           = "Error while performing health-check for service: %s"
+	TimeFormat                 = "2006-01-02 15:04:05"
+	TraceIdHeader              = "x-trace-id"
+	StartMessage               = "Starting API Service on PORT=%s | ENV=%s"
+	DefaultRedisTtl            = 1 * time.Hour
 
 	// Email
-	EmailTemplatePath   = "%s/web/emails/%s.html"
-	EmailFrom           = "Example <team@%s>"
-	WelcomeEmailSubject = "Welcome to Example!"
-
-	// Context keys
-	RequestIdCtxKey    = "request_id"
-	UserIdCtxKey       = "userId"
-	DepartmentIdCtxKey = "department_id"
-	RoleCtxKey         = "department_role"
-
-	// Errors
-	HealthCheckError         = "Error while performing health-check for service: %s"
+	EmailTemplatePath        = "%s/web/emails/%s.html"
+	EmailFrom                = "Example <team@%s>"
+	WelcomeEmailSubject      = "Welcome to Example!"
 	InvalidTemplatePathError = "invalid template path: %s"
-	TokenExpiredError        = "Token expired"
-	TokenInvalidError        = "Token invalid"
+
+	// Misc
+	LocalEnv       = "local"
+	DevelopmentEnv = "development"
+	ProductionEnv  = "prod"
 )
