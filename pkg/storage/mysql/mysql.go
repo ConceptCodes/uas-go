@@ -18,14 +18,21 @@ func New(l zerolog.Logger) (*gorm.DB, error) {
 	var err error
 	l.Debug().Msg("Connecting to MySQL")
 
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		config.AppConfig.DbUser,
+		config.AppConfig.DbPass,
+		config.AppConfig.DbHost,
+		config.AppConfig.DbPort,
+		config.AppConfig.DbName,
+	)
+
+	// Add TLS parameters if enabled
+	if config.AppConfig.EnableMySQLTLS {
+		dsn += "&tls=true"
+	}
+
 	db, err := gorm.Open(mysql.New(mysql.Config{
-		DSN: fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-			config.AppConfig.DbUser,
-			config.AppConfig.DbPass,
-			config.AppConfig.DbHost,
-			config.AppConfig.DbPort,
-			config.AppConfig.DbName,
-		),
+		DSN: dsn,
 	}), &gorm.Config{
 		Logger: logger.New(
 			&l,

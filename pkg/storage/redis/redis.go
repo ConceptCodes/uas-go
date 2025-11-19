@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"sync"
 
@@ -20,11 +21,20 @@ func New(l zerolog.Logger, ctx context.Context) *redis.Client {
 	once.Do(func() {
 		l.Debug().Msg("Connecting to redis")
 
-		client = redis.NewClient(&redis.Options{
+		options := &redis.Options{
 			Addr:     fmt.Sprintf("%s:%d", config.AppConfig.RedisHost, config.AppConfig.RedisPort),
 			Password: config.AppConfig.RedisPassword,
 			DB:       config.AppConfig.RedisDB,
-		})
+		}
+
+		// Add TLS configuration if enabled
+		if config.AppConfig.EnableRedisTLS {
+			options.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+		}
+
+		client = redis.NewClient(options)
 
 		ctx := context.Background()
 

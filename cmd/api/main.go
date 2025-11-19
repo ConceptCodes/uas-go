@@ -59,6 +59,10 @@ func Run() {
 	passwordHelper := helpers.NewPasswordHelper(log)
 	securityLoggerHelper := helpers.NewSecurityLoggerHelper(log, securityAuditRepo)
 	tokenHelper := helpers.NewTokenHelper(log, redisHelper)
+	encryptionHelper, err := helpers.NewEncryptionHelper(log)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Error while creating encryption helper")
+	}
 	_ = sessionRepo
 	_ = tokenHelper
 	_ = securityLoggerHelper
@@ -78,6 +82,7 @@ func Run() {
 		twilioHelper,
 		loginAttemptHelper,
 		passwordHelper,
+		encryptionHelper,
 	)
 
 	router := mux.NewRouter()

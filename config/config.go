@@ -63,6 +63,11 @@ type Config struct {
 	PasswordHistoryCount     int  `env:"PASSWORD_HISTORY_COUNT" envDefault:"5"`
 
 	MaxRequestSizeMB int `env:"MAX_REQUEST_SIZE_MB" envDefault:"10"`
+
+	EncryptionKey      string `env:"ENCRYPTION_KEY" envDefault:"CHANGE_ME_32_BYTE_ENCRYPTION_KEY"`
+	EnableDBEncryption bool   `env:"ENABLE_DB_ENCRYPTION" envDefault:"false"`
+	EnableRedisTLS     bool   `env:"ENABLE_REDIS_TLS" envDefault:"false"`
+	EnableMySQLTLS     bool   `env:"ENABLE_MYSQL_TLS" envDefault:"false"`
 }
 
 var AppConfig = Config{}

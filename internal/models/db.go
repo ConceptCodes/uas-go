@@ -32,9 +32,42 @@ type UserModel struct {
 	ID            string `gorm:"primaryKey;type:varchar(36);unique_index"`
 	Name          string `gorm:"type:varchar(100)"`
 	Email         string `gorm:"type:varchar(100);unique_index"`
-	Password      string `gorm:"type:varchar(100);unique_index"`
+	Password      string `gorm:"type:varchar(255)"`
 	PhoneNumber   string `gorm:"type:varchar(14);unique_index"`
 	EmailVerified bool   `gorm:"type:boolean"`
+
+	// Encrypted versions of sensitive fields
+	EncryptedName        EncryptedField `gorm:"type:text"`
+	EncryptedEmail       EncryptedField `gorm:"type:text"`
+	EncryptedPhoneNumber EncryptedField `gorm:"type:text"`
+}
+
+// BeforeSave GORM hook to encrypt sensitive fields before saving
+func (u *UserModel) BeforeSave(tx *gorm.DB) error {
+	if u.Name != "" {
+		u.EncryptedName.Set(u.Name)
+	}
+	if u.Email != "" {
+		u.EncryptedEmail.Set(u.Email)
+	}
+	if u.PhoneNumber != "" {
+		u.EncryptedPhoneNumber.Set(u.PhoneNumber)
+	}
+	return nil
+}
+
+// AfterFind GORM hook to decrypt sensitive fields after finding
+func (u *UserModel) AfterFind(tx *gorm.DB) error {
+	if u.EncryptedName.Data != "" {
+		u.Name = u.EncryptedName.String()
+	}
+	if u.EncryptedEmail.Data != "" {
+		u.Email = u.EncryptedEmail.String()
+	}
+	if u.EncryptedPhoneNumber.Data != "" {
+		u.PhoneNumber = u.EncryptedPhoneNumber.String()
+	}
+	return nil
 }
 
 type DepartmentRoles struct {
@@ -49,7 +82,7 @@ type DepartmentRoles struct {
 type AuthModel struct {
 	UserID    string        `gorm:"type:varchar(36);unique_index"`
 	Token     string        `gorm:"primaryKey;type:varchar(36)"`
-	Type      AuthModelType `gorm:"primaryKey:type:varchar(36);`
+	Type      AuthModelType `gorm:"primaryKey;type:varchar(36)"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`

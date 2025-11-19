@@ -27,6 +27,7 @@ type UserHandler struct {
 	twilioHelper        *helpers.TwilioHelper
 	loginAttemptHelper  *helpers.LoginAttemptHelper
 	passwordHelper      *helpers.PasswordHelper
+	encryptionHelper    *helpers.EncryptionHelper
 }
 
 func NewUserHandler(
@@ -43,6 +44,7 @@ func NewUserHandler(
 	twilioHelper *helpers.TwilioHelper,
 	loginAttemptHelper *helpers.LoginAttemptHelper,
 	passwordHelper *helpers.PasswordHelper,
+	encryptionHelper *helpers.EncryptionHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:            userRepo,
@@ -58,6 +60,7 @@ func NewUserHandler(
 		twilioHelper:        twilioHelper,
 		loginAttemptHelper:  loginAttemptHelper,
 		passwordHelper:      passwordHelper,
+		encryptionHelper:    encryptionHelper,
 	}
 }
 
@@ -243,7 +246,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	}
 
 	if locked {
-		h.log.Warn().Str("email", data.Email).Msg("Login attempt for locked account")
+		h.log.Warn().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Login attempt for locked account")
 		h.responseHelper.SendErrorResponse(w, "Account temporarily locked due to too many failed login attempts", constants.BadRequest, nil)
 		return
 	}
@@ -251,7 +254,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	user, err := h.userRepo.FindByEmail(data.Email)
 
 	if err != nil {
-		h.log.Error().Err(err).Str("email", data.Email).Msg("Error finding user")
+		h.log.Error().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Error finding user")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
@@ -259,7 +262,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	}
 
 	if user == nil {
-		h.log.Info().Str("email", data.Email).Msg("User not found")
+		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
 		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
@@ -267,7 +270,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	}
 
 	if !user.EmailVerified {
-		h.log.Info().Str("email", data.Email).Msg("Email not verified")
+		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Email not verified")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
 		return
@@ -276,7 +279,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	valid := h.authHelper.CheckPasswordHash(data.Password, user.Password)
 
 	if !valid {
-		h.log.Info().Str("email", data.Email).Msg("Invalid password")
+		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Invalid password")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
 		attemptCount, _ := h.loginAttemptHelper.GetFailedAttemptCount(data.Email)
 		delay := h.loginAttemptHelper.GetProgressiveDelay(attemptCount)
@@ -512,7 +515,7 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 	departmentId := helpers.GetDepartmentId(r)
 
 	if err != nil {
-		h.log.Info().Str("phoneNumber", data.PhoneNumber).Msg("User does not exist")
+		h.log.Info().Str("phoneNumber", h.encryptionHelper.MaskPhone(data.PhoneNumber)).Msg("User does not exist")
 
 		userId := uuid.New().String()
 
@@ -620,7 +623,7 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 	departmentId := helpers.GetDepartmentId(r)
 
 	if err != nil {
-		h.log.Info().Str("email", data.Email).Msg("User does not exist")
+		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User does not exist")
 
 		userId := uuid.New().String()
 
