@@ -35,9 +35,10 @@ func (lrw *responseWriter) WriteHeader(code int) {
 func (m *LoggerMiddleware) Start(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		rw := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}}
+		rw := &responseWriter{ResponseWriter: w, body: &bytes.Buffer{}, statusCode: http.StatusOK}
 
 		start := time.Now()
+		next.ServeHTTP(rw, r)
 
 		m.log.
 			Info().
@@ -47,7 +48,5 @@ func (m *LoggerMiddleware) Start(next http.Handler) http.Handler {
 			Dur("elapsed_ms", time.Since(start)).
 			Int("status_code", rw.statusCode).
 			Msgf("Incoming %s request", r.Method)
-
-		next.ServeHTTP(w, r)
 	})
 }

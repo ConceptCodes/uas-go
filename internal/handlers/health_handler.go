@@ -5,32 +5,33 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 	"uas/config"
 	"uas/internal/constants"
 	"uas/internal/models"
-	mysql "uas/pkg/storage/mysql"
-	redis "uas/pkg/storage/redis"
 
 	"github.com/gorilla/mux"
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
+	"gorm.io/gorm"
 )
 
 type HealthHandler struct {
-	log          *zerolog.Logger
-	mysqlStorage mysql.MySQLStorage
-	redisStorage redis.RedisStorage
+	log         *zerolog.Logger
+	db          *gorm.DB
+	redisClient *redis.Client
 }
 
 func NewHealthHandler(
 	log *zerolog.Logger,
-	mysqlStorage mysql.MySQLStorage,
-	redisStorage redis.RedisStorage,
+	db *gorm.DB,
+	redisClient *redis.Client,
 ) *HealthHandler {
 	return &HealthHandler{
-		log:          log,
-		mysqlStorage: mysqlStorage,
-		redisStorage: redisStorage,
+		log:         log,
+		db:          db,
+		redisClient: redisClient,
 	}
 }
 
@@ -139,7 +140,7 @@ func (h *HealthHandler) checkMySQL() DependencyHealth {
 	start := time.Now()
 
 	// Get database connection
-	sqlDB, err := h.mysqlStorage.GetDB()
+	sqlDB, err := h.db.DB()
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to get database connection")
 		return DependencyHealth{
@@ -163,7 +164,7 @@ func (h *HealthHandler) checkMySQL() DependencyHealth {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	var result string
+	var result int
 	err = sqlDB.QueryRowContext(ctx, "SELECT 1").Scan(&result)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Database query failed")
@@ -188,7 +189,7 @@ func (h *HealthHandler) checkRedis() DependencyHealth {
 	start := time.Now()
 
 	// Get Redis client
-	client := h.redisStorage.GetClient()
+	client := h.redisClient
 	if client == nil {
 		h.log.Error().Msg("Redis client is nil")
 		return DependencyHealth{
@@ -281,7 +282,7 @@ func (h *HealthHandler) checkConfiguration() DependencyHealth {
 		return DependencyHealth{
 			Status:  "unhealthy",
 			Message: "Configuration issues detected",
-			Details: "Issues: " + ", ".join(issues, ", "),
+			Details: "Issues: " + strings.Join(issues, ", "),
 		}
 	}
 

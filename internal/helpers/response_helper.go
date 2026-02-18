@@ -23,20 +23,27 @@ func (r *ResponseHelper) SendSuccessResponse(w http.ResponseWriter, message stri
 		Data:    data,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	return
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		r.log.Error().Err(err).Msg("Failed to encode success response")
+	}
 }
 
 func (r *ResponseHelper) SendErrorResponse(w http.ResponseWriter, message string, errorCode string, err error) {
-	r.log.Error().Err(err).Msg(message)
-
-	response := models.ErrorResponse{
-		Message:   message,
-		ErrorCode: errorCode,
+	if err != nil {
+		r.log.Error().Err(err).Msg(message)
+	} else {
+		r.log.Error().Str("code", errorCode).Msg(message)
 	}
 
-	json.NewEncoder(w).Encode(response)
+	response := models.ErrorResponse{
+		Error:   errorCode,
+		Code:    errorCode,
+		Message: message,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	switch errorCode {
 	case constants.NotFound:
 		w.WriteHeader(http.StatusNotFound)
@@ -51,5 +58,8 @@ func (r *ResponseHelper) SendErrorResponse(w http.ResponseWriter, message string
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	return
+
+	if encodeErr := json.NewEncoder(w).Encode(response); encodeErr != nil {
+		r.log.Error().Err(encodeErr).Msg("Failed to encode error response")
+	}
 }

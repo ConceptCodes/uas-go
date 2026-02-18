@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"uas/internal/constants"
+	"uas/internal/helpers"
 	"uas/internal/models"
 
 	"github.com/google/uuid"
@@ -58,7 +59,7 @@ func (em *ErrorMiddleware) Handle(next http.Handler) http.Handler {
 }
 
 func (em *ErrorMiddleware) HandleError(w http.ResponseWriter, r *http.Request, appErr *models.AppError) {
-	traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+	traceID := helpers.TraceIDFromContext(r.Context())
 
 	// Add context to error
 	appErr = appErr.WithContext(traceID, traceID, r.URL.Path, r.Method)
@@ -71,7 +72,7 @@ func (em *ErrorMiddleware) HandleError(w http.ResponseWriter, r *http.Request, a
 }
 
 func (em *ErrorMiddleware) logError(r *http.Request, rw *errorResponseWriter, appErr *models.AppError) {
-	traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+	traceID := helpers.TraceIDFromContext(r.Context())
 
 	statusCode := http.StatusInternalServerError
 	if appErr != nil {
@@ -80,16 +81,19 @@ func (em *ErrorMiddleware) logError(r *http.Request, rw *errorResponseWriter, ap
 		statusCode = rw.statusCode
 	}
 
-	em.log.Error().
+	logEvent := em.log.Error().
 		Str("trace_id", traceID).
 		Str("method", r.Method).
 		Str("path", r.URL.Path).
 		Str("remote_addr", r.RemoteAddr).
 		Str("user_agent", r.UserAgent()).
-		Int("status_code", statusCode).
-		Str("error_code", appErr.Code).
-		Str("error_message", appErr.Message).
-		Msg("Request error occurred")
+		Int("status_code", statusCode)
+	if appErr != nil {
+		logEvent = logEvent.
+			Str("error_code", appErr.Code).
+			Str("error_message", appErr.Message)
+	}
+	logEvent.Msg("Request error occurred")
 }
 
 func (em *ErrorMiddleware) logRequest(r *http.Request, rw *errorResponseWriter, traceID string) {

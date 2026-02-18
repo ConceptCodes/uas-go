@@ -23,7 +23,11 @@ func SetRequestId(r *http.Request, requestID string) *http.Request {
 }
 
 func GetRequestId(r *http.Request) string {
-	return r.Context().Value(RequestIDKey).(string)
+	requestID, ok := r.Context().Value(RequestIDKey).(string)
+	if !ok {
+		return ""
+	}
+	return requestID
 }
 
 func SetUserId(r *http.Request, userId string) *http.Request {

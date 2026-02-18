@@ -61,7 +61,7 @@ func validPhone(fl validator.FieldLevel) bool {
 	return phoneRegex.MatchString(phone)
 }
 
-func (v *ValidatorHelper) ValidateStruct(w http.ResponseWriter, s interface{}) {
+func (v *ValidatorHelper) ValidateStruct(w http.ResponseWriter, s interface{}) bool {
 	v.log.Debug().Interface("struct", s).Msg("Validating Request Data")
 
 	err := validate.Struct(s)
@@ -71,5 +71,7 @@ func (v *ValidatorHelper) ValidateStruct(w http.ResponseWriter, s interface{}) {
 			errMsgs = append(errMsgs, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", err.Field(), err.Tag()))
 		}
 		v.responseHelper.SendErrorResponse(w, strings.Join(errMsgs, ", "), constants.BadRequest, err)
+		return false
 	}
+	return true
 }

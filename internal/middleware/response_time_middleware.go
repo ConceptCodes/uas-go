@@ -3,7 +3,6 @@ package middleware
 import (
 	"net/http"
 	"time"
-	"uas/internal/constants"
 	"uas/internal/helpers"
 
 	"github.com/rs/zerolog"
@@ -47,7 +46,7 @@ func (rtm *ResponseTimeMiddleware) Handle(next http.Handler) http.Handler {
 
 		// Log slow requests
 		if duration > 5*time.Second {
-			traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+			traceID := helpers.TraceIDFromContext(r.Context())
 			rtm.log.Warn().
 				Str("trace_id", traceID).
 				Str("method", r.Method).

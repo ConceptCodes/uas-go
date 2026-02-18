@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"uas/internal/constants"
 	"uas/internal/models"
@@ -21,7 +22,7 @@ func NewErrorHandler(log *zerolog.Logger) *ErrorHandler {
 
 // HandleError logs and handles application errors
 func (eh *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, err *models.AppError) {
-	traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+	traceID := TraceIDFromContext(r.Context())
 
 	// Add context to error
 	err = err.WithContext(traceID, traceID, r.URL.Path, r.Method)
@@ -43,7 +44,7 @@ func (eh *ErrorHandler) HandleError(w http.ResponseWriter, r *http.Request, err 
 // HandlePanic recovers from panics and logs them
 func (eh *ErrorHandler) HandlePanic(w http.ResponseWriter, r *http.Request) {
 	if rec := recover(); rec != nil {
-		traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+		traceID := TraceIDFromContext(r.Context())
 
 		eh.log.Error().
 			Str("trace_id", traceID).
@@ -84,7 +85,7 @@ func (eh *ErrorHandler) ValidateRequest(w http.ResponseWriter, r *http.Request, 
 
 // LogRequest logs successful requests
 func (eh *ErrorHandler) LogRequest(r *http.Request, statusCode int, duration int64) {
-	traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+	traceID := TraceIDFromContext(r.Context())
 
 	level := eh.log.Info()
 	if statusCode >= 400 {
