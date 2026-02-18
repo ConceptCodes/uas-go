@@ -5,6 +5,8 @@ clean:
 	@go clean
 
 # Migration commands
+migrate: migrate-up
+
 migrate-up:
 	@go run cmd/migrate/main.go -cmd up
 
@@ -53,4 +55,4 @@ mod-tidy:
 mod-download:
 	@go mod download
 
-.PHONY: run clean migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test lint fmt mod-tidy mod-download
+.PHONY: run clean migrate migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test lint fmt mod-tidy mod-download

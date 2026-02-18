@@ -105,7 +105,7 @@ To get a local copy up and running follow these simple steps.
 
 4. Start the server
   ```sh
-  make start
+  make dev
   ```
 
 5. The server should now be running on `http://localhost:8080`
@@ -120,11 +120,12 @@ To get a local copy up and running follow these simple steps.
 
 ```sh
 curl -X GET \
-  https://localhost:8080/api/v1/health
+  https://localhost:8080/api/v1/health/alive
 ```
 ```json
 {
-  "status": "ok"
+  "service": "uas",
+  "status": true
 }
 ```
 
@@ -158,10 +159,12 @@ curl -X POST \
 ```sh
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <tenant_basic_token>" \
   -d '{
     "email": "user@example.com",
     "password": "strong_password",
-    "name": "John Smith"
+    "name": "John Smith",
+    "phoneNumber": "+15551234567"
   }' \
   https://localhost:8080/api/v1/users/credential/register
 ```
@@ -180,6 +183,7 @@ curl -X POST \
 ```sh
 curl -X POST \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <tenant_basic_token>" \
   -d '{
     "email": "user@example.com",
     "password": "strong_password"
@@ -238,7 +242,7 @@ curl -X POST \
 ```sh
 curl -X POST \
   -H "Content-Type: application/json" \
-  -H "Cookie: <access_token>" \
+  -H "x-jwt-token: <refresh_token>" \
   https://localhost:8080/api/v1/users/refresh-token
 ```
 
@@ -254,9 +258,9 @@ curl -X POST \
 - [x] Add support for password reset
 - [x] Add support for rate limiting
 - [x] Add support for OTP login
-- [ ] Add support for magic link login
+- [x] Add support for magic link login
 - [x] Add support for RBAC
-- [ ] Add support for audit logging
+- [x] Add support for audit logging
 
 
 
@@ -280,5 +284,3 @@ curl -X POST \
 [bcrypt-url]: https://www.npmjs.com/package/bcrypt
 [mysql-shield]: https://img.shields.io/badge/-MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white
 [mysql-url]: https://www.mysql.com/
-
-
