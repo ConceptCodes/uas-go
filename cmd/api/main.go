@@ -13,6 +13,7 @@ import (
 	"uas/internal/middleware"
 	"uas/internal/models"
 	repository "uas/internal/repositories"
+	"uas/internal/services"
 	"uas/pkg/email"
 	"uas/pkg/logger"
 	"uas/pkg/storage/mysql"
@@ -20,6 +21,7 @@ import (
 	"uas/pkg/twilio"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 )
 
@@ -36,6 +38,19 @@ func Run() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error while connecting to database")
 	}
+	if err := db.AutoMigrate(
+		&models.DepartmentModel{},
+		&models.UserModel{},
+		&models.DepartmentRoles{},
+		&models.AuthModel{},
+		&models.DepartmentConfig{},
+		&models.PasswordHistory{},
+		&models.SecurityEvent{},
+		&models.Session{},
+		&models.AuditLog{},
+	); err != nil {
+		log.Fatal().Err(err).Msg("Error while auto-migrating database schema")
+	}
 
 	emailClient := email.New()
 	redisClient := redis.New(*log, ctx)
@@ -47,6 +62,7 @@ func Run() {
 	departmentRoleRepo := repository.NewGormDepartmentRoleRepository(db)
 	passwordHistoryRepo := repository.NewGormPasswordHistoryRepository(db)
 	securityAuditRepo := repository.NewGormSecurityAuditRepository(db)
+	auditLogRepo := repository.NewGormAuditLogRepository(db)
 	sessionRepo := repository.NewGormSessionRepository(db)
 
 	redisHelper := helpers.NewRedisHelper(redisClient, log, ctx)
@@ -58,21 +74,26 @@ func Run() {
 	loginAttemptHelper := helpers.NewLoginAttemptHelper(redisHelper, log)
 	passwordHelper := helpers.NewPasswordHelper(log)
 	securityLoggerHelper := helpers.NewSecurityLoggerHelper(log, securityAuditRepo)
+	auditHelper := helpers.NewAuditHelper(log, auditLogRepo)
 	tokenHelper := helpers.NewTokenHelper(log, redisHelper)
 	encryptionHelper, err := helpers.NewEncryptionHelper(log)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error while creating encryption helper")
 	}
-	_ = sessionRepo
+	metricsHelper := helpers.NewMetricsHelper(log)
+	retentionService := services.NewRetentionService(auditLogRepo, log)
 	_ = tokenHelper
 	_ = securityLoggerHelper
 
 	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
+	healthHandler := handlers.NewHealthHandler(log, db, redisClient)
+	auditHandler := handlers.NewAuditHandler(auditLogRepo, log, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(
 		userRepo,
 		passwordResetRepo,
 		departmentRoleRepo,
 		departmentRepo,
+		sessionRepo,
 		passwordHistoryRepo,
 		log,
 		authHelper,
@@ -90,11 +111,17 @@ func Run() {
 	traceMiddleware := middleware.NewTraceRequestMiddleware(log, authHelper)
 	router.Use(traceMiddleware.Start)
 
+	auditMiddleware := middleware.NewAuditMiddleware(log, auditHelper)
+	router.Use(auditMiddleware.Log)
+
 	requestLogger := middleware.NewLoggerMiddleware(log)
 	router.Use(requestLogger.Start)
 
-	rateLimitMiddleware := middleware.NewRateLimitRequestMiddleware(log, redisClient)
-	router.Use(rateLimitMiddleware.Start)
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(log, metricsHelper)
+	rateLimitMiddleware.StartCleanup()
+	router.Use(rateLimitMiddleware.Handle)
+
+	startAuditRetentionCleanup(retentionService, log)
 
 	securityHeadersMiddleware := middleware.NewSecurityHeadersMiddleware(log)
 	router.Use(securityHeadersMiddleware.Start)
@@ -111,12 +138,13 @@ func Run() {
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsLoginEndpoint, 5, "ip")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpSendEndpoint, 3, "phone")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpVerifyEndpoint, 5, "phone")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.MagicLinkSendEndpoint, 3, "email")
 
 	var AdminAccess = []models.Role{models.Admin}
-	var GeneralAccess = []models.Role{models.Admin, models.User}
 	// var UserAccess = []models.Role{models.User}
 
 	router.HandleFunc(constants.OnboardTenantEndpoint, DepartmentHandler.OnboardDepartmentHandler).Methods(http.MethodPost)
+	healthHandler.RegisterRoutes(router)
 
 	delTenant := router.Methods(http.MethodDelete).Subrouter()
 	delTenant.HandleFunc(constants.DeleteTenantEndpoint, DepartmentHandler.DeleteDepartmentHandler)
@@ -134,6 +162,14 @@ func Run() {
 
 	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
 	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.CredentialsVerifyEndpoint, userHandler.CredentialsVerifyEmailHandler).Methods(http.MethodPost)
+
+	// Magic link endpoints
+	magicLinkSendSub := router.Methods(http.MethodPost).Subrouter()
+	magicLinkSendSub.HandleFunc(constants.MagicLinkSendEndpoint, userHandler.SendMagicLinkEmail)
+	magicLinkSendSub.Use(endpointRateLimitMiddleware.Start)
+
+	router.HandleFunc(constants.MagicLinkVerifyEndpoint, userHandler.VerifyMagicLinkEmail).Methods(http.MethodGet)
 
 	otpSendSub := router.Methods(http.MethodPost).Subrouter()
 	otpSendSub.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode)
@@ -145,16 +181,24 @@ func Run() {
 
 	refreshToken := router.Methods(http.MethodPost).Subrouter()
 	refreshToken.HandleFunc(constants.RefreshTokenEndpoint, userHandler.RefreshAccessTokenHandler)
-	refreshToken.Use(func(next http.Handler) http.Handler {
-		return rbacMiddleware.Authorize(GeneralAccess, next)
+
+	auditSub := router.PathPrefix(constants.ApiPrefix + "/audit").Subrouter()
+	auditSub.HandleFunc("/logs", auditHandler.GetAuditLogs).Methods(http.MethodGet)
+	auditSub.HandleFunc("/logs/{id}", auditHandler.GetAuditLogByID).Methods(http.MethodGet)
+	auditSub.HandleFunc("/stats", auditHandler.GetAuditStats).Methods(http.MethodGet)
+	auditSub.Use(func(next http.Handler) http.Handler {
+		return rbacMiddleware.Authorize(AdminAccess, next)
 	})
 
 	port := fmt.Sprintf("%d", config.AppConfig.Port)
 	srv := &http.Server{
-		Handler:      router,
-		Addr:         fmt.Sprintf("%s:%s", config.AppConfig.Host, port),
-		WriteTimeout: time.Duration(config.AppConfig.Timeout) * time.Second,
-		ReadTimeout:  time.Duration(config.AppConfig.Timeout) * time.Second,
+		Handler:           router,
+		Addr:              fmt.Sprintf("%s:%s", config.AppConfig.Host, port),
+		WriteTimeout:      time.Duration(config.AppConfig.Timeout) * time.Second,
+		ReadTimeout:       time.Duration(config.AppConfig.Timeout) * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	log.Debug().Msgf(constants.StartMessage, port, config.AppConfig.Env)
@@ -166,4 +210,31 @@ func Run() {
 			Err(err).
 			Msg("Error while starting server")
 	}
+}
+
+func startAuditRetentionCleanup(retentionService *services.RetentionService, log *zerolog.Logger) {
+	intervalHours := config.AppConfig.AuditRetentionCleanupHours
+	if intervalHours <= 0 {
+		log.Info().Int("hours", intervalHours).Msg("Audit retention cleanup disabled")
+		return
+	}
+
+	runCleanup := func() {
+		if err := retentionService.CleanupOldAuditLogs(); err != nil {
+			log.Error().Err(err).Msg("Audit retention cleanup failed")
+			return
+		}
+		log.Info().Msg("Audit retention cleanup completed")
+	}
+
+	go func() {
+		runCleanup()
+
+		ticker := time.NewTicker(time.Duration(intervalHours) * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			runCleanup()
+		}
+	}()
 }

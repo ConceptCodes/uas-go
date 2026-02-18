@@ -87,6 +87,15 @@ type Config struct {
 	MaxRequestSize     int `env:"MAX_REQUEST_SIZE" envDefault:"10485760"`
 	RateLimitRequests  int `env:"RATE_LIMIT_REQUESTS" envDefault:"100"`
 	RateLimitWindow    int `env:"RATE_LIMIT_WINDOW" envDefault:"60"`
+
+	// Magic link configuration
+	MagicLinkBaseUrl string `env:"MAGIC_LINK_BASE_URL" envDefault:"http://localhost:8080"`
+
+	// CORS configuration
+	CORSAllowedOrigins string `env:"CORS_ALLOWED_ORIGINS" envDefault:"http://localhost:3000,http://localhost:5173"`
+
+	// Audit retention cleanup schedule
+	AuditRetentionCleanupHours int `env:"AUDIT_RETENTION_CLEANUP_HOURS" envDefault:"24"`
 }
 
 var AppConfig = Config{}
