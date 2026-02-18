@@ -11,6 +11,7 @@ type DepartmentRoleRepository interface {
 	Create(user *models.DepartmentRoles) error
 	Update(user *models.DepartmentRoles) error
 	FindById(departmentId string, userId string) (*models.DepartmentRoles, error)
+	FindByUserID(userID string) (*models.DepartmentRoles, error)
 }
 
 type GormDepartmentRoleRepository struct {
@@ -31,6 +32,14 @@ func (r *GormDepartmentRoleRepository) FindById(departmentId string, userId stri
 		return nil, err
 	}
 
+	return &model, nil
+}
+
+func (r *GormDepartmentRoleRepository) FindByUserID(userID string) (*models.DepartmentRoles, error) {
+	var model models.DepartmentRoles
+	if err := r.db.Where("user_id = ?", userID).Order("updated_at DESC").First(&model).Error; err != nil {
+		return nil, err
+	}
 	return &model, nil
 }
 

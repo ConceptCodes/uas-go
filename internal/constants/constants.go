@@ -57,8 +57,11 @@ const (
 	CredentialsRegisterEndpoint = ApiPrefix + "/users/credential/register"
 	CredentialsForgotEndpoint   = ApiPrefix + "/users/credential/forgot-password"
 	CredentialsResetEndpoint    = ApiPrefix + "/users/credential/reset-password"
+	CredentialsVerifyEndpoint   = ApiPrefix + "/users/credential/verify-email"
 	OtpSendEndpoint             = ApiPrefix + "/users/otp/send"
 	OtpVerifyEndpoint           = ApiPrefix + "/users/otp/verify"
+	MagicLinkSendEndpoint       = ApiPrefix + "/users/magic-link/send"
+	MagicLinkVerifyEndpoint     = ApiPrefix + "/users/magic-link/verify"
 	RefreshTokenEndpoint        = ApiPrefix + "/users/refresh-token"
 
 	// Context keys

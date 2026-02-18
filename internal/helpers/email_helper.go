@@ -51,7 +51,16 @@ func (c EmailHelper) LoadTemplate(name string, args interface{}) (string, error)
 		Interface("args", args).
 		Msg("Loading email template")
 
-	parsedTemplate, _ := template.ParseFiles(templatePath)
+	parsedTemplate, err := template.ParseFiles(templatePath)
+	if err != nil {
+		c.logger.
+			Error().
+			Err(err).
+			Str("template", templatePath).
+			Interface("args", args).
+			Msg("Error while reading email template")
+		return "", err
+	}
 	var tpl bytes.Buffer
 	err = parsedTemplate.Execute(&tpl, args)
 
@@ -82,16 +91,46 @@ func (c EmailHelper) LoadTemplate(name string, args interface{}) (string, error)
 }
 
 func (c *EmailHelper) SendEmail(email string, template string, data interface{}) error {
-
 	var templates = EmailTemplates{
 		"forgot-password": {
-			Subject: constants.WelcomeEmailSubject,
+			Subject: "Reset your password",
 			Component: func(data interface{}) string {
 				tmpl, err := c.LoadTemplate("forgot-password", data.(models.ForgotPasswordData))
 				if err != nil {
 					return ""
 				}
 
+				return tmpl
+			},
+		},
+		"reset-password": {
+			Subject: "Reset your password",
+			Component: func(data interface{}) string {
+				tmpl, err := c.LoadTemplate("reset-password", data.(models.ForgotPasswordData))
+				if err != nil {
+					return ""
+				}
+
+				return tmpl
+			},
+		},
+		"verify-email": {
+			Subject: "Verify your email",
+			Component: func(data interface{}) string {
+				tmpl, err := c.LoadTemplate("verify-email", data.(models.VerifyEmailData))
+				if err != nil {
+					return ""
+				}
+				return tmpl
+			},
+		},
+		"magic-link": {
+			Subject: "Your magic login link",
+			Component: func(data interface{}) string {
+				tmpl, err := c.LoadTemplate("magic-link", data.(models.MagicEmailData))
+				if err != nil {
+					return ""
+				}
 				return tmpl
 			},
 		},
@@ -103,6 +142,7 @@ func (c *EmailHelper) SendEmail(email string, template string, data interface{})
 		c.logger.Error().
 			Str("template", template).
 			Msg("Template not found")
+		return fmt.Errorf("template not found: %s", template)
 	}
 
 	subject := templateInfo.Subject

@@ -28,7 +28,7 @@ type ForgotPasswordRequest struct {
 }
 
 type ResetPasswordRequest struct {
-	Password string `json:"password" validate:"email,required,noSQLKeywords"`
+	Password string `json:"password" validate:"required,noSQLKeywords"`
 }
 
 type SendOtpRequest struct {
