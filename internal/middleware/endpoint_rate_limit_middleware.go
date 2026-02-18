@@ -1,7 +1,11 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -55,12 +59,18 @@ func (m *EndpointRateLimitMiddleware) Start(next http.Handler) http.Handler {
 		case "email":
 			identifier = r.FormValue("email")
 			if identifier == "" {
+				identifier = extractJSONField(r, "email")
+			}
+			if identifier == "" {
 				m.log.Warn().Str("path", r.URL.Path).Msg("Email identifier requested but not provided")
 				http.Error(w, "Email required", http.StatusBadRequest)
 				return
 			}
 		case "phone":
 			identifier = r.FormValue("phoneNumber")
+			if identifier == "" {
+				identifier = extractJSONField(r, "phoneNumber")
+			}
 			if identifier == "" {
 				m.log.Warn().Str("path", r.URL.Path).Msg("Phone identifier requested but not provided")
 				http.Error(w, "Phone number required", http.StatusBadRequest)
@@ -121,7 +131,38 @@ func (m *EndpointRateLimitMiddleware) extractUserClaims(r *http.Request) (map[st
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return nil, errors.New("user claims extraction is not configured")
+}
+
+func extractJSONField(r *http.Request, field string) string {
+	if r.Body == nil {
+		return ""
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return ""
+	}
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	if len(body) == 0 {
+		return ""
+	}
+
+	var payload map[string]interface{}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	value, ok := payload[field]
+	if !ok {
+		return ""
+	}
+
+	if s, ok := value.(string); ok {
+		return s
+	}
+	return ""
 }
 
 func (m *EndpointRateLimitMiddleware) RateLimitByIP(limit int) func(http.Handler) http.Handler {

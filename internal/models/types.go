@@ -2,13 +2,14 @@ package models
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql/driver"
+	"encoding/base64"
 	"fmt"
-	"os"
+	"uas/config"
 
-	"uas/internal/helpers"
-
-	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -38,15 +39,9 @@ func (ef *EncryptedField) Scan(value interface{}) error {
 		return nil
 	}
 
-	log := zerolog.New(os.Stdout).With().Timestamp().Logger()
-	encryptionHelper, err := helpers.NewEncryptionHelper(&log)
+	decrypted, err := decryptField(encryptedStr)
 	if err != nil {
-		return fmt.Errorf("failed to create encryption helper: %w", err)
-	}
-
-	decrypted, err := encryptionHelper.Decrypt(encryptedStr)
-	if err != nil {
-		return fmt.Errorf("failed to decrypt field: %w", err)
+		return err
 	}
 
 	ef.Data = decrypted
@@ -58,15 +53,9 @@ func (ef EncryptedField) Value() (driver.Value, error) {
 		return "", nil
 	}
 
-	log := zerolog.New(os.Stdout).With().Timestamp().Logger()
-	encryptionHelper, err := helpers.NewEncryptionHelper(&log)
+	encrypted, err := encryptField(ef.Data)
 	if err != nil {
-		return "", fmt.Errorf("failed to create encryption helper: %w", err)
-	}
-
-	encrypted, err := encryptionHelper.Encrypt(ef.Data)
-	if err != nil {
-		return "", fmt.Errorf("failed to encrypt field: %w", err)
+		return "", err
 	}
 
 	return encrypted, nil
@@ -81,13 +70,7 @@ func (ef EncryptedField) GormValue(ctx context.Context, db *gorm.DB) clause.Expr
 		return clause.Expr{SQL: "NULL"}
 	}
 
-	log := zerolog.New(os.Stdout).With().Timestamp().Logger()
-	encryptionHelper, err := helpers.NewEncryptionHelper(&log)
-	if err != nil {
-		return clause.Expr{SQL: "NULL"}
-	}
-
-	encrypted, err := encryptionHelper.Encrypt(ef.Data)
+	encrypted, err := encryptField(ef.Data)
 	if err != nil {
 		return clause.Expr{SQL: "NULL"}
 	}
@@ -104,4 +87,72 @@ func (ef EncryptedField) String() string {
 
 func (ef *EncryptedField) Set(value string) {
 	ef.Data = value
+}
+
+func encryptField(plaintext string) (string, error) {
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	ciphertext := gcm.Seal(nonce, nil, []byte(plaintext), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+func decryptField(ciphertext string) (string, error) {
+	key, err := getEncryptionKey()
+	if err != nil {
+		return "", err
+	}
+
+	data, err := base64.StdEncoding.DecodeString(ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %w", err)
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", fmt.Errorf("failed to create cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(data) < nonceSize {
+		return "", fmt.Errorf("ciphertext too short")
+	}
+
+	nonce, encrypted := data[:nonceSize], data[nonceSize:]
+	plaintext, err := gcm.Open(nil, nonce, encrypted, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt: %w", err)
+	}
+
+	return string(plaintext), nil
+}
+
+func getEncryptionKey() ([]byte, error) {
+	key := []byte(config.AppConfig.EncryptionKey)
+	if len(key) != 32 {
+		return nil, fmt.Errorf("encryption key must be 32 bytes, got %d", len(key))
+	}
+	return key, nil
 }

@@ -10,6 +10,7 @@ import (
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
 )
 
@@ -55,9 +56,12 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		return
 	}
 
-	h.validatorHelper.ValidateStruct(w, &data)
+	if !h.validatorHelper.ValidateStruct(w, &data) {
+		return
+	}
 
 	secret := uuid.New().String()
 
@@ -66,6 +70,7 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Department")
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
+		return
 	}
 
 	department := &models.DepartmentModel{
@@ -79,6 +84,7 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Department")
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
+		return
 	}
 
 	res := &models.OnboardDepartmentResponse{
@@ -86,7 +92,7 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 		DepartmentName: department.Name,
 	}
 
-	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(department.ID, department.Secret))
+	token := fmt.Sprintf("Bearer %s", h.authHelper.GenerateBasicAuthToken(department.ID, secret))
 
 	w.Header().Set(constants.AuthorizationHeader, token)
 	h.responseHelper.SendSuccessResponse(w, "Department onboarded successfully", res)
@@ -105,12 +111,13 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 // @Failure 500 {object} ErrorResponse
 // @Router /tenants/{id} [delete]
 func (h *DepartmentHandler) DeleteDepartmentHandler(w http.ResponseWriter, r *http.Request) {
-	vars := r.URL.Query()
-	tenant_id := vars.Get("id")
+	vars := mux.Vars(r)
+	tenant_id := vars["id"]
 
 	if tenant_id == "" {
 		message := fmt.Sprintf(constants.EntityNotFound, "Tenant", "id", tenant_id)
 		h.responseHelper.SendErrorResponse(w, message, constants.NotFound, nil)
+		return
 	}
 
 	err := h.departmentRepo.Delete(tenant_id)
@@ -118,6 +125,7 @@ func (h *DepartmentHandler) DeleteDepartmentHandler(w http.ResponseWriter, r *ht
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
 		h.responseHelper.SendErrorResponse(w, message, constants.InternalServerError, err)
+		return
 	}
 
 	// Note: if we introduced sessions, we would need to delete all sessions associated with the tenant here

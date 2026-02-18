@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"net"
 	"net/http"
 	"uas/internal/constants"
 	"uas/internal/models"
@@ -43,11 +44,9 @@ func (s *SecurityLoggerHelper) LogAuthEvent(r *http.Request, eventType string, u
 }
 
 func (s *SecurityLoggerHelper) getClientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
-	}
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
 	}
 	return r.RemoteAddr
 }

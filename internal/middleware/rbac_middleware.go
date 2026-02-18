@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 	"uas/internal/constants"
@@ -26,15 +27,22 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 		accessToken, err := r.Cookie(constants.AccessTokenCookie)
 
 		if err != nil {
-			m.log.Error().Msgf("Error: %s", err)
+			m.log.Warn().Err(err).Msg("Missing access token cookie")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		claims, err := m.authHelper.ParseAccessJwtToken(accessToken.Value)
+		rawToken, err := m.authHelper.DecodeAccessCookie(accessToken.Value)
+		if err != nil {
+			m.log.Warn().Err(err).Msg("Failed to decode access token cookie")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		claims, err := m.authHelper.ParseAccessJwtToken(rawToken)
 
 		if err != nil {
-			m.log.Error().Msgf("Error: %s", err)
+			m.log.Warn().Err(err).Msg("Failed to parse access token")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -42,24 +50,27 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 		expTime, err := claims.GetExpirationTime()
 
 		if err != nil {
-			m.log.Error().Msgf("Error: %s", err)
+			m.log.Warn().Err(err).Msg("Missing token expiration")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		if expTime.Before(time.Now()) {
-			m.log.Error().Msgf("Error: %s", err)
+		if expTime == nil || expTime.Before(time.Now()) {
+			m.log.Warn().Msg("Access token expired")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		m.log.Info().Msgf("Access token is valid")
+		userId, err := getStringClaim(claims, "userId")
+		if err != nil {
+			m.log.Warn().Err(err).Msg("Invalid userId claim")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 
-		userId := claims["userId"].(string)
-		departmentId := claims["departmentId"].(string)
-
-		if userId == "" || departmentId == "" {
-			m.log.Error().Msgf("Error: %s", err)
+		departmentId, err := getStringClaim(claims, "departmentId")
+		if err != nil {
+			m.log.Warn().Err(err).Msg("Invalid departmentId claim")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -67,7 +78,7 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 		departmentRole, err := m.departmentRoleRepo.FindById(departmentId, userId)
 
 		if err != nil {
-			m.log.Error().Msgf("Error: %s", err)
+			m.log.Warn().Err(err).Msg("Failed to resolve role binding")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -84,4 +95,16 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 
 		http.Error(w, "Forbidden", http.StatusForbidden)
 	})
+}
+
+func getStringClaim(claims map[string]interface{}, key string) (string, error) {
+	value, ok := claims[key]
+	if !ok {
+		return "", fmt.Errorf("missing claim %s", key)
+	}
+	s, ok := value.(string)
+	if !ok || s == "" {
+		return "", fmt.Errorf("invalid claim %s", key)
+	}
+	return s, nil
 }

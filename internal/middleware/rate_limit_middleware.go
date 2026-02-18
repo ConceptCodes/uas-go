@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
-	"uas/internal/constants"
 	"uas/internal/helpers"
 
 	"github.com/rs/zerolog"
@@ -51,7 +51,7 @@ func (rlm *RateLimitMiddleware) Handle(next http.Handler) http.Handler {
 		if rlm.isRateLimited(clientIP) {
 			rlm.metricsHelper.RecordError("rate_limit", "TOO_MANY_REQUESTS")
 
-			traceID := r.Context().Value(constants.RequestIdCtxKey).(string)
+			traceID := helpers.TraceIDFromContext(r.Context())
 			rlm.log.Warn().
 				Str("trace_id", traceID).
 				Str("client_ip", clientIP).
@@ -80,17 +80,10 @@ func (rlm *RateLimitMiddleware) Handle(next http.Handler) http.Handler {
 }
 
 func (rlm *RateLimitMiddleware) getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
 	}
-
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return xri
-	}
-
-	// Fall back to RemoteAddr
 	return r.RemoteAddr
 }
 

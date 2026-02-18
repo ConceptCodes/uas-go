@@ -1,15 +1,16 @@
 package helpers
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 	"uas/config"
+	"uas/internal/constants"
 	repository "uas/internal/repositories"
 
 	"github.com/google/uuid"
@@ -34,8 +35,6 @@ func (h *AuthHelper) GenerateBasicAuthToken(tenantId string, tenantSecret string
 }
 
 func (h *AuthHelper) ValidateBasicAuthToken(token string) (string, error) {
-	h.log.Debug().Msgf("Validating token: %s", token)
-
 	data, err := base64.StdEncoding.DecodeString(token)
 
 	if err != nil {
@@ -63,7 +62,7 @@ func (h *AuthHelper) ValidateBasicAuthToken(token string) (string, error) {
 		return tenantId, nil
 	}
 
-	return "", err
+	return "", errors.New("invalid tenant credentials")
 }
 
 func (h *AuthHelper) HashPassword(password string) (string, error) {
@@ -90,19 +89,23 @@ func (h *AuthHelper) GenerateAuthToken() string {
 }
 
 func (h *AuthHelper) GenerateOtpCode(target string) (string, error) {
-	otp_code := strconv.Itoa(rand.Intn(9000) + 1000)
+	n, err := rand.Int(rand.Reader, big.NewInt(10000))
+	if err != nil {
+		return "", fmt.Errorf("failed to generate secure OTP: %w", err)
+	}
+	otpCode := fmt.Sprintf("%04d", n.Int64())
 
 	key := fmt.Sprintf("otp:%s", target)
 	dur := time.Duration(config.AppConfig.OtpExpire) * time.Minute
 
-	err := h.redisHelper.SetData(key, otp_code, dur)
+	err = h.redisHelper.SetData(key, otpCode, dur)
 
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error generating OTP code")
 		return "", err
 	}
 
-	return otp_code, nil
+	return otpCode, nil
 }
 
 func (h *AuthHelper) ValidateOtpCode(target string, otpCode string) error {
@@ -127,6 +130,10 @@ func (h *AuthHelper) ValidateOtpCode(target string, otpCode string) error {
 }
 
 func (h *AuthHelper) GenerateAccessCookie(access_token string, w http.ResponseWriter) {
+	if access_token == "" {
+		return
+	}
+
 	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
 	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
 
@@ -150,4 +157,21 @@ func (h *AuthHelper) GenerateAccessCookie(access_token string, w http.ResponseWr
 		}
 		http.SetCookie(w, cookie)
 	}
+}
+
+func (h *AuthHelper) DecodeAccessCookie(encoded string) (string, error) {
+	if encoded == "" {
+		return "", errors.New("empty access token cookie")
+	}
+
+	cookieHashKey := []byte(config.AppConfig.CookieHashKey)
+	cookieBlockKey := []byte(config.AppConfig.CookieBlockKey)
+	sc := securecookie.New(cookieHashKey, cookieBlockKey)
+
+	var token string
+	if err := sc.Decode(constants.AccessTokenCookie, encoded, &token); err != nil {
+		return "", err
+	}
+
+	return token, nil
 }

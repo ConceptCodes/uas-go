@@ -31,22 +31,32 @@ func (m *TraceRequestMiddleware) Start(next http.Handler) http.Handler {
 
 		w.Header().Add(constants.TraceIdHeader, requestId)
 
-		authToken := r.Header.Get(constants.AuthorizationHeader)
+		authHeader := r.Header.Get(constants.AuthorizationHeader)
+		authToken := strings.TrimPrefix(authHeader, "Bearer ")
 
-		if authToken != "" {
-			authToken = strings.Replace(authToken, "Bearer ", "", 1)
-
-			tenantId, err := m.authHelper.ValidateBasicAuthToken(authToken)
-
+		if authHeader != "" {
+			tenantID, err := m.authHelper.ValidateBasicAuthToken(authToken)
 			if err != nil {
-				m.log.Error().Str(constants.RequestIdCtxKey, requestId).Msgf("Error: %s", err)
+				m.log.Warn().Str(constants.RequestIdCtxKey, requestId).Err(err).Msg("Invalid tenant authorization token")
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
 			}
-
-			r = helpers.SetDepartmentId(r, tenantId)
+			r = helpers.SetDepartmentId(r, tenantID)
+		} else if requiresTenantAuth(r.URL.Path) {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
 		}
 
 		r = helpers.SetRequestId(r, requestId)
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func requiresTenantAuth(path string) bool {
+	return path == constants.CredentialsRegisterEndpoint ||
+		path == constants.CredentialsLoginEndpoint ||
+		path == constants.OtpSendEndpoint ||
+		path == constants.OtpVerifyEndpoint ||
+		path == constants.MagicLinkSendEndpoint
 }

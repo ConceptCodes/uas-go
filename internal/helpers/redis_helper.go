@@ -34,7 +34,10 @@ func (r *RedisHelper) SetData(key string, value string, ttl time.Duration) error
 		Str("key", key).
 		Msgf("Setting key %s in redis", key)
 
-	return r.client.Set(r.ctx, key, value, ttl|constants.DefaultRedisTtl).Err()
+	if ttl <= 0 {
+		ttl = constants.DefaultRedisTtl
+	}
+	return r.client.Set(r.ctx, key, value, ttl).Err()
 }
 
 func (r *RedisHelper) IncrData(key string) (int64, error) {

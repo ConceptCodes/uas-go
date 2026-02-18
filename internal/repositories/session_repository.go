@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"time"
 	"uas/internal/models"
 
@@ -25,14 +28,27 @@ func NewGormSessionRepository(db *gorm.DB) SessionRepository {
 }
 
 func (r *GormSessionRepository) Create(session *models.Session) error {
-	return r.db.Create(session).Error
+	hashedSession := *session
+	hashedSession.RefreshToken = hashRefreshToken(session.RefreshToken)
+	return r.db.Create(&hashedSession).Error
 }
 
 func (r *GormSessionRepository) FindByRefreshToken(token string) (*models.Session, error) {
 	var session models.Session
+	hashedToken := hashRefreshToken(token)
 	err := r.db.
-		Where("refresh_token = ? AND revoked_at IS NULL AND expires_at > ?", token, time.Now()).
+		Where("refresh_token = ? AND revoked_at IS NULL AND expires_at > ?", hashedToken, time.Now()).
 		First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		legacyErr := r.db.
+			Where("refresh_token = ? AND revoked_at IS NULL AND expires_at > ?", token, time.Now()).
+			First(&session).Error
+		if legacyErr == nil {
+			_ = r.db.Model(&session).Update("refresh_token", hashedToken).Error
+			return &session, nil
+		}
+		return &session, legacyErr
+	}
 	return &session, err
 }
 
@@ -61,4 +77,9 @@ func (r *GormSessionRepository) RevokeAllUserSessions(userID string) error {
 
 func (r *GormSessionRepository) DeleteExpiredSessions() error {
 	return r.db.Where("expires_at < ?", time.Now()).Delete(&models.Session{}).Error
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

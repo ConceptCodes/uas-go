@@ -81,7 +81,7 @@ type DepartmentRoles struct {
 
 type AuthModel struct {
 	UserID    string        `gorm:"type:varchar(36);unique_index"`
-	Token     string        `gorm:"primaryKey;type:varchar(36)"`
+	Token     string        `gorm:"primaryKey;type:varchar(128)"`
 	Type      AuthModelType `gorm:"primaryKey;type:varchar(36)"`
 	CreatedAt time.Time
 	UpdatedAt time.Time

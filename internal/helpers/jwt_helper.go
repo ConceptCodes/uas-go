@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"errors"
+	"fmt"
 	"time"
 	"uas/config"
 	"uas/internal/models"
@@ -28,21 +29,7 @@ func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant strin
 }
 
 func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, error) {
-	h.log.Debug().Msgf("Parsing JWT Access token: %s", tokenString)
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.AppConfig.AccessJwtSecret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return nil, errors.New("error extracting claims")
-	}
-
-	return claims, nil
+	return parseJWT(tokenString, config.AppConfig.AccessJwtSecret)
 }
 
 func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant string) (string, error) {
@@ -62,13 +49,46 @@ func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant stri
 }
 
 func (h *AuthHelper) ParseRefreshJwtToken(tokenString string) (jwt.MapClaims, error) {
-	h.log.Debug().Msgf("Parsing JWT Refresh token: %s", tokenString)
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(config.AppConfig.RefreshJwtSecret), nil
-	})
+	return parseJWT(tokenString, config.AppConfig.RefreshJwtSecret)
+}
 
+func (h *AuthHelper) GenerateTokens(userID, userEmail, userName, tenant string) (string, string, error) {
+	h.log.Debug().Msgf("Generating JWT tokens for user: %s", userName)
+
+	// Create user model for token generation
+	user := &models.UserModel{
+		ID:    userID,
+		Email: userEmail,
+		Name:  userName,
+	}
+
+	// Generate access token
+	accessToken, err := h.GenerateAccessJwtToken(user, tenant)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Generate refresh token
+	refreshToken, err := h.GenerateRefreshJwtToken(user, tenant)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+func parseJWT(tokenString, secret string) (jwt.MapClaims, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if token.Method == nil || token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, err
+	}
+	if !token.Valid {
+		return nil, errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
