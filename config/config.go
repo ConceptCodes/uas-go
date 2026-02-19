@@ -33,6 +33,7 @@ type Config struct {
 	ResendApiKey      string `env:"RESEND_API_KEY" envDefault:"resend"`
 	EmailFrom         string `env:"EMAIL_FROM" envDefault:"example@gmail.com"`
 	ResendEmailDomain string `env:"RESEND_EMAIL_DOMAIN" envDefault:"resend.dev"`
+	EmailProvider     string `env:"EMAIL_PROVIDER" envDefault:"resend"`
 
 	RefreshJwtSecret string `env:"REFRESH_JWT_SECRET" envDefault:"CHANGE_ME_REFRESH_SECRET_MIN_32_CHARS"`
 	RefreshJwtExpire int    `env:"REFRESH_JWT_EXPIRE" envDefault:"24"`
@@ -165,6 +166,11 @@ func validateConfig() error {
 		if !emailRegex.MatchString(AppConfig.EmailFrom) {
 			errors = append(errors, "EMAIL_FROM must be a valid email address")
 		}
+	}
+
+	// Validate email provider
+	if AppConfig.EmailProvider != "resend" && AppConfig.EmailProvider != "mock" {
+		errors = append(errors, "EMAIL_PROVIDER must be either 'resend' or 'mock'")
 	}
 
 	// Validate port range

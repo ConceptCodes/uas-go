@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"strings"
 
 	"errors"
 	"uas/config"
@@ -164,6 +165,21 @@ func (c *EmailHelper) SendEmail(email string, template string, data interface{})
 		To:      []string{email},
 		Html:    html,
 		Subject: subject,
+	}
+
+	if config.AppConfig.EmailProvider == "mock" {
+		preview := html
+		if len(preview) > 200 {
+			preview = preview[:200] + "..."
+		}
+		c.logger.Info().
+			Str("provider", "mock").
+			Str("email", email).
+			Str("template", template).
+			Str("subject", subject).
+			Str("preview", strings.ReplaceAll(preview, "\n", " ")).
+			Msg("Mock email send")
+		return nil
 	}
 
 	sent, err := c.client.Emails.Send(params)
