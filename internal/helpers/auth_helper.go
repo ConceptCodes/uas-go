@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -89,11 +90,11 @@ func (h *AuthHelper) GenerateAuthToken() string {
 }
 
 func (h *AuthHelper) GenerateOtpCode(target string) (string, error) {
-	n, err := rand.Int(rand.Reader, big.NewInt(10000))
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
 	if err != nil {
 		return "", fmt.Errorf("failed to generate secure OTP: %w", err)
 	}
-	otpCode := fmt.Sprintf("%04d", n.Int64())
+	otpCode := fmt.Sprintf("%06d", n.Int64())
 
 	key := fmt.Sprintf("otp:%s", target)
 	dur := time.Duration(config.AppConfig.OtpExpire) * time.Minute
@@ -122,8 +123,12 @@ func (h *AuthHelper) ValidateOtpCode(target string, otpCode string) error {
 		return errors.New("otp code not found")
 	}
 
-	if otpCode != code {
+	if subtle.ConstantTimeCompare([]byte(otpCode), []byte(code)) != 1 {
 		return errors.New("invalid OTP code")
+	}
+
+	if err := h.redisHelper.DeleteData(key); err != nil {
+		h.log.Warn().Err(err).Msg("Failed to delete OTP after successful verification")
 	}
 
 	return nil
