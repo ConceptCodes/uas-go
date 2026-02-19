@@ -1,0 +1,62 @@
+groups:
+  - name: uas-service-alerts
+    rules:
+      - alert: UASInstanceDown
+        expr: up{job="uas-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: uas-api
+        annotations:
+          summary: "UAS API instance is down"
+          description: "No successful scrape from uas-api for more than 2 minutes."
+
+      - alert: UASHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_requests_total{endpoint=~"/api/.*",status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total{endpoint=~"/api/.*"}[5m])), 0.001)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          service: uas-api
+        annotations:
+          summary: "High API 5xx rate"
+          description: "5xx ratio has been above 5% for 10 minutes."
+
+      - alert: UASHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{endpoint=~"/api/.*"}[5m]))
+          ) > 1.0
+        for: 15m
+        labels:
+          severity: warning
+          service: uas-api
+        annotations:
+          summary: "High API p95 latency"
+          description: "p95 request latency has exceeded 1s for 15 minutes."
+
+      - alert: UASRateLimitSpike
+        expr: |
+          increase(errors_total{type="rate_limit",code="TOO_MANY_REQUESTS"}[10m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+          service: uas-api
+        annotations:
+          summary: "Rate limit spikes detected"
+          description: "More than 100 rate-limit errors in 10 minutes."
+
+      - alert: UASNoLoginActivity
+        expr: increase(login_attempts_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: info
+          service: uas-api
+        annotations:
+          summary: "No login attempts observed"
+          description: "No login traffic in the last 30 minutes; verify upstream routing and clients."

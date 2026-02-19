@@ -270,6 +270,16 @@ curl -X POST \
 - RBAC for user roles and permissions.
 - Use `EMAIL_PROVIDER=mock` only for local/dev testing; keep `resend` in production.
 
+### Operational Hardening
+
+- Metrics endpoint: `GET /metrics` (enabled with `ENABLE_METRICS=true`)
+- Alert rules: `deploy/monitoring/prometheus-alerts.yml`
+- Dashboard template: `deploy/monitoring/grafana-dashboard.json`
+- Runbook: `deploy/runbooks/OPERATIONS_HARDENING.md`
+- Backup/restore:
+  - `make backup-db`
+  - `make restore-db FILE=backups/<snapshot>.sql.gz`
+
 
 ## Roadmap
 - [x] Add support for email verification
