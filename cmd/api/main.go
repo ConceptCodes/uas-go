@@ -136,6 +136,12 @@ func Run() {
 
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsRegisterEndpoint, 5, "ip")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsLoginEndpoint, 5, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsForgotEndpoint, 3, "email")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsVerifyEndpoint, 5, "email")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsRegisterEndpointV2, 5, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsLoginEndpointV2, 5, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsForgotEndpointV2, 3, "email")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsVerifyEndpointV2, 5, "email")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpSendEndpoint, 3, "phone")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpVerifyEndpoint, 5, "phone")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.MagicLinkSendEndpoint, 3, "email")
@@ -154,15 +160,26 @@ func Run() {
 
 	registerSub := router.Methods(http.MethodPost).Subrouter()
 	registerSub.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler)
+	registerSub.HandleFunc(constants.CredentialsRegisterEndpointV2, userHandler.CredentialsRegisterUserHandler)
 	registerSub.Use(endpointRateLimitMiddleware.Start)
 
 	loginSub := router.Methods(http.MethodPost).Subrouter()
 	loginSub.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler)
+	loginSub.HandleFunc(constants.CredentialsLoginEndpointV2, userHandler.CredentialsLoginUserHandler)
 	loginSub.Use(endpointRateLimitMiddleware.Start)
 
-	router.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
+	forgotSub := router.Methods(http.MethodPost).Subrouter()
+	forgotSub.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler)
+	forgotSub.HandleFunc(constants.CredentialsForgotEndpointV2, userHandler.CredentialsForgotPasswordHandler)
+	forgotSub.Use(endpointRateLimitMiddleware.Start)
+
+	verifySub := router.Methods(http.MethodPost).Subrouter()
+	verifySub.HandleFunc(constants.CredentialsVerifyEndpoint, userHandler.CredentialsVerifyEmailHandler)
+	verifySub.HandleFunc(constants.CredentialsVerifyEndpointV2, userHandler.CredentialsVerifyEmailHandler)
+	verifySub.Use(endpointRateLimitMiddleware.Start)
+
 	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
-	router.HandleFunc(constants.CredentialsVerifyEndpoint, userHandler.CredentialsVerifyEmailHandler).Methods(http.MethodPost)
+	router.HandleFunc(constants.CredentialsResetEndpointV2, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
 
 	// Magic link endpoints
 	magicLinkSendSub := router.Methods(http.MethodPost).Subrouter()
