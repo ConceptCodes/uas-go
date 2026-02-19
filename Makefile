@@ -43,6 +43,9 @@ build:
 test:
 	@go test ./...
 
+test-smoke-auth:
+	@bash scripts/auth_smoke.sh
+
 lint:
 	@golangci-lint run
 
@@ -55,4 +58,4 @@ mod-tidy:
 mod-download:
 	@go mod download
 
-.PHONY: run clean migrate migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test lint fmt mod-tidy mod-download
+.PHONY: run clean migrate migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test test-smoke-auth lint fmt mod-tidy mod-download
