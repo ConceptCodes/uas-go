@@ -27,6 +27,7 @@ func (rtm *ResponseTimeMiddleware) Handle(next http.Handler) http.Handler {
 		// Create response writer to capture status code
 		rw := &responseTimeWriter{
 			ResponseWriter: w,
+			statusCode:     http.StatusOK,
 		}
 
 		// Process request

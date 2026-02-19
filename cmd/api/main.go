@@ -121,6 +121,14 @@ func Run() {
 	rateLimitMiddleware.StartCleanup()
 	router.Use(rateLimitMiddleware.Handle)
 
+	if config.AppConfig.EnableMetrics {
+		metricsHelper.RegisterMetrics()
+		responseTimeMiddleware := middleware.NewResponseTimeMiddleware(log, metricsHelper)
+		router.Use(responseTimeMiddleware.Handle)
+		router.Handle("/metrics", metricsHelper.GetHandler()).Methods(http.MethodGet)
+		log.Info().Msg("Metrics middleware and /metrics endpoint enabled")
+	}
+
 	startAuditRetentionCleanup(retentionService, log)
 
 	securityHeadersMiddleware := middleware.NewSecurityHeadersMiddleware(log)
