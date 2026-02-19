@@ -46,6 +46,13 @@ test:
 test-smoke-auth:
 	@bash scripts/auth_smoke.sh
 
+backup-db:
+	@bash scripts/db_backup.sh
+
+restore-db:
+	@if [ -z "$(FILE)" ]; then echo "Usage: make restore-db FILE=backups/your_file.sql.gz"; exit 1; fi
+	@bash scripts/db_restore.sh $(FILE)
+
 lint:
 	@golangci-lint run
 
@@ -58,4 +65,4 @@ mod-tidy:
 mod-download:
 	@go mod download
 
-.PHONY: run clean migrate migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test test-smoke-auth lint fmt mod-tidy mod-download
+.PHONY: run clean migrate migrate-up migrate-down migrate-create migrate-status migrate-force migrate-drop migrate-validate migrate-list dev build test test-smoke-auth backup-db restore-db lint fmt mod-tidy mod-download
