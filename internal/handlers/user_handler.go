@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 	"uas/config"
 	"uas/internal/constants"
@@ -272,7 +273,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 
 	if locked {
 		h.log.Warn().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Login attempt for locked account")
-		h.responseHelper.SendErrorResponse(w, "Account temporarily locked due to too many failed login attempts", constants.BadRequest, nil)
+		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
@@ -289,15 +290,14 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	if user == nil {
 		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
 	if !user.EmailVerified {
 		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Email not verified")
 		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
-		h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
+		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
@@ -309,7 +309,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		attemptCount, _ := h.loginAttemptHelper.GetFailedAttemptCount(data.Email)
 		delay := h.loginAttemptHelper.GetProgressiveDelay(attemptCount)
 		h.loginAttemptHelper.ApplyProgressiveDelay(r.Context(), delay)
-		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.BadRequest, err)
+		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
@@ -366,22 +366,13 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	}
 
 	user, err := h.userRepo.FindByEmail(data.Email)
-
 	if err != nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
-		return
+		h.log.Warn().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Forgot password lookup failed")
 	}
 
-	if user == nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+	if user == nil || !user.EmailVerified {
+		h.responseHelper.SendSuccessResponse(w, "If the account exists, a password reset email has been sent", nil)
 		return
-	} else {
-		if !user.EmailVerified {
-			h.responseHelper.SendErrorResponse(w, "Email not verified", constants.BadRequest, err)
-			return
-		}
 	}
 
 	reset_token := h.authHelper.GenerateAuthToken()
@@ -399,11 +390,12 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	url := fmt.Sprintf("%s?token=%s", r.URL, reset_token)
+	baseURL := strings.TrimRight(config.AppConfig.PasswordResetBaseUrl, "/")
+	resetURL := fmt.Sprintf("%s?token=%s", baseURL, reset_token)
 
 	tmpl_data := models.ForgotPasswordData{
 		Name: user.Name,
-		Url:  url,
+		Url:  resetURL,
 	}
 
 	err = h.emailHelper.SendEmail(data.Email, "reset-password", tmpl_data)

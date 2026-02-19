@@ -89,7 +89,8 @@ type Config struct {
 	RateLimitWindow    int `env:"RATE_LIMIT_WINDOW" envDefault:"60"`
 
 	// Magic link configuration
-	MagicLinkBaseUrl string `env:"MAGIC_LINK_BASE_URL" envDefault:"http://localhost:8080"`
+	MagicLinkBaseUrl     string `env:"MAGIC_LINK_BASE_URL" envDefault:"http://localhost:8080"`
+	PasswordResetBaseUrl string `env:"PASSWORD_RESET_BASE_URL" envDefault:"http://localhost:8080/api/v1/users/credential/reset-password"`
 
 	// CORS configuration
 	CORSAllowedOrigins string `env:"CORS_ALLOWED_ORIGINS" envDefault:"http://localhost:3000,http://localhost:5173"`
