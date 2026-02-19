@@ -110,8 +110,9 @@ func encryptField(plaintext string) (string, error) {
 		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nonce, nil, []byte(plaintext), nil)
-	return base64.StdEncoding.EncodeToString(ciphertext), nil
+	ciphertext := gcm.Seal(nil, nonce, []byte(plaintext), nil)
+	combined := append(nonce, ciphertext...)
+	return base64.StdEncoding.EncodeToString(combined), nil
 }
 
 func decryptField(ciphertext string) (string, error) {
