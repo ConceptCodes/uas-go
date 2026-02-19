@@ -110,6 +110,23 @@ To get a local copy up and running follow these simple steps.
 
 5. The server should now be running on `http://localhost:8080`
 
+### Local Auth Smoke Test (No External Email Provider)
+
+For local end-to-end auth validation, you can run the smoke test with mock email mode:
+
+```sh
+make test-smoke-auth
+```
+
+What it validates:
+- tenant onboarding
+- credentials registration
+- email verification (OTP read from Redis)
+- login + refresh token
+- forgot-password + reset-password + login with new password
+
+The script starts against local MySQL/Redis containers (`uas-mysql`, `uas-redis`) and runs API with `EMAIL_PROVIDER=mock`.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 
@@ -251,6 +268,7 @@ curl -X POST \
 - HTTPS for all communication.
 - Rate limiting for login attempts.
 - RBAC for user roles and permissions.
+- Use `EMAIL_PROVIDER=mock` only for local/dev testing; keep `resend` in production.
 
 
 ## Roadmap
