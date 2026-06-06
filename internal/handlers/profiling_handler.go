@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	_ "net/http/pprof"
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"

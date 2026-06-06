@@ -1,3 +1,8 @@
 .env
+config/.env.development
+config/.env.production
+config/.env.staging
 notes.txt
 uas
+
+.agents/*
