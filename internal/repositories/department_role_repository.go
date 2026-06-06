@@ -1,17 +1,17 @@
 package repository
 
 import (
-	"gorm.io/gorm"
-
 	"uas/internal/constants"
 	"uas/internal/models"
+
+	"gorm.io/gorm"
 )
 
 type DepartmentRoleRepository interface {
 	Create(user *models.DepartmentRoles) error
 	Update(user *models.DepartmentRoles) error
 	FindById(departmentId string, userId string) (*models.DepartmentRoles, error)
-	FindByUserID(userID string) (*models.DepartmentRoles, error)
+	FindByUserID(userID string, departmentID string) (*models.DepartmentRoles, error)
 }
 
 type GormDepartmentRoleRepository struct {
@@ -31,13 +31,12 @@ func (r *GormDepartmentRoleRepository) FindById(departmentId string, userId stri
 	if err := r.db.Where(constants.FindByIdAndUserIdQuery, departmentId, userId).First(&model).Error; err != nil {
 		return nil, err
 	}
-
 	return &model, nil
 }
 
-func (r *GormDepartmentRoleRepository) FindByUserID(userID string) (*models.DepartmentRoles, error) {
+func (r *GormDepartmentRoleRepository) FindByUserID(userID string, departmentID string) (*models.DepartmentRoles, error) {
 	var model models.DepartmentRoles
-	if err := r.db.Where("user_id = ?", userID).Order("updated_at DESC").First(&model).Error; err != nil {
+	if err := r.db.Where("user_id = ? AND id = ?", userID, departmentID).Order("updated_at DESC").First(&model).Error; err != nil {
 		return nil, err
 	}
 	return &model, nil

@@ -222,7 +222,7 @@ func (h *UserHandler) CredentialsVerifyEmailHandler(w http.ResponseWriter, r *ht
 	}
 
 	departmentId := helpers.GetDepartmentId(r)
-	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
+	user, err := h.userRepo.FindByEmail(data.Email, departmentId)
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Invalid verification request", constants.Unauthorized, nil)
@@ -235,7 +235,7 @@ func (h *UserHandler) CredentialsVerifyEmailHandler(w http.ResponseWriter, r *ht
 	}
 
 	user.EmailVerified = true
-	err = h.userRepo.Save(user)
+	err = h.userRepo.Save(user, departmentId)
 
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error verifying email", constants.InternalServerError, err)
@@ -287,7 +287,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
+	user, err := h.userRepo.FindByEmail(data.Email, departmentId)
 
 	if err != nil {
 		h.log.Warn().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found in tenant")
@@ -376,7 +376,7 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	}
 
 	departmentId := helpers.GetDepartmentId(r)
-	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
+	user, err := h.userRepo.FindByEmail(data.Email, departmentId)
 	if err != nil {
 		h.log.Warn().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Forgot password lookup failed")
 	}
@@ -389,9 +389,10 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	reset_token := h.authHelper.GenerateAuthToken()
 
 	tmp := models.AuthModel{
-		UserID: user.ID,
-		Token:  reset_token,
-		Type:   models.ResetPassword,
+		UserID:       user.ID,
+		Token:        reset_token,
+		Type:         models.ResetPassword,
+		DepartmentID: departmentId,
 	}
 
 	err = h.authRepo.Create(&tmp)
@@ -466,7 +467,12 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	user, err := h.userRepo.FindById(record.UserID)
+	tokenDepartmentID := record.DepartmentID
+	if tokenDepartmentID == "" {
+		tokenDepartmentID = helpers.GetDepartmentId(r)
+	}
+
+	user, err := h.userRepo.FindById(record.UserID, tokenDepartmentID)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Invalid reset token", constants.BadRequest, nil)
 		return
@@ -480,13 +486,13 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 	}
 
 	user.Password = password_hash
-	err = h.userRepo.Save(user)
+	err = h.userRepo.Save(user, tokenDepartmentID)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
 		return
 	}
 
-	if err := h.authRepo.DeleteByTokenAndType(data.Token, models.ResetPassword); err != nil {
+	if err := h.authRepo.DeleteByTokenAndType(data.Token, models.ResetPassword, tokenDepartmentID); err != nil {
 		h.log.Warn().Err(err).Msg("Failed to delete reset token after password update")
 	}
 
@@ -551,8 +557,8 @@ func (h *UserHandler) VerifyOtpCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err = h.userRepo.FindByPhoneNumber(data.PhoneNumber)
 	departmentId := helpers.GetDepartmentId(r)
+	user, err = h.userRepo.FindByPhoneNumber(data.PhoneNumber, departmentId)
 
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -644,7 +650,7 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	session, err := h.sessionRepo.FindByRefreshToken(refreshToken)
+	session, err := h.sessionRepo.FindByRefreshToken(refreshToken, departmentID)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Invalid refresh token", constants.Unauthorized, err)
 		return
@@ -654,7 +660,7 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	user, err := h.userRepo.FindById(userID)
+	user, err := h.userRepo.FindById(userID, departmentID)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error finding user", constants.InternalServerError, err)
 		return
@@ -672,7 +678,7 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if err := h.sessionRepo.RevokeSession(session.ID); err != nil {
+	if err := h.sessionRepo.RevokeSession(session.ID, departmentID); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error rotating refresh token", constants.InternalServerError, err)
 		return
 	}
@@ -716,7 +722,7 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err = h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
+	user, err = h.userRepo.FindByEmail(data.Email, departmentId)
 
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -758,9 +764,10 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 	token := h.authHelper.GenerateAuthToken()
 
 	tmp := models.AuthModel{
-		UserID: user.ID,
-		Token:  token,
-		Type:   models.MagicLink,
+		UserID:       user.ID,
+		Token:        token,
+		Type:         models.MagicLink,
+		DepartmentID: departmentId,
 	}
 
 	err = h.authRepo.Create(&tmp)
@@ -809,20 +816,19 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := h.userRepo.FindById(record.UserID)
-	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "Invalid magic link", constants.BadRequest, nil)
+	departmentId := record.DepartmentID
+	if departmentId == "" {
+		departmentId = helpers.GetDepartmentId(r)
+	}
+	if departmentId == "" {
+		h.responseHelper.SendErrorResponse(w, "Cannot resolve tenant context", constants.Unauthorized, nil)
 		return
 	}
 
-	departmentId := helpers.GetDepartmentId(r)
-	if departmentId == "" {
-		role, err := h.departmentRoleRepo.FindByUserID(user.ID)
-		if err != nil {
-			h.responseHelper.SendErrorResponse(w, "Failed to resolve department for user", constants.InternalServerError, err)
-			return
-		}
-		departmentId = role.ID
+	user, err := h.userRepo.FindById(record.UserID, departmentId)
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Invalid magic link", constants.BadRequest, nil)
+		return
 	}
 
 	accessToken, refreshToken, err := h.authHelper.GenerateTokens(user.ID, user.Email, user.Name, departmentId)
@@ -837,7 +843,7 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err = h.authRepo.DeleteByTokenAndType(data.Token, models.MagicLink)
+	err = h.authRepo.DeleteByTokenAndType(data.Token, models.MagicLink, departmentId)
 	if err != nil {
 		h.log.Warn().Err(err).Msg("Failed to delete magic link token after verification")
 	}
@@ -866,6 +872,7 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 			if err == nil && decoded != "" {
 				claims, err := h.authHelper.ParseAccessJwtToken(decoded)
 				if err == nil {
+					tid, _ := claims[constants.JwtTidKey].(string)
 					if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
 						exp := time.Unix(int64(claims["exp"].(float64)), 0)
 						if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
@@ -873,7 +880,7 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 						}
 					}
 					if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {
-						_ = h.sessionRepo.RevokeAllUserSessions(sub)
+						_ = h.sessionRepo.RevokeAllUserSessions(sub, tid)
 					}
 				}
 			}
@@ -881,6 +888,7 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		claims, err := h.authHelper.ParseRefreshJwtToken(refreshToken)
 		if err == nil {
+			tid, _ := claims[constants.JwtTidKey].(string)
 			if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
 				exp := time.Unix(int64(claims["exp"].(float64)), 0)
 				if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
@@ -888,12 +896,13 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {
-				_ = h.sessionRepo.RevokeAllUserSessions(sub)
+				_ = h.sessionRepo.RevokeAllUserSessions(sub, tid)
 			}
 		}
-		session, err := h.sessionRepo.FindByRefreshToken(refreshToken)
+		departmentID := helpers.GetDepartmentId(r)
+		session, err := h.sessionRepo.FindByRefreshToken(refreshToken, departmentID)
 		if err == nil && session != nil {
-			_ = h.sessionRepo.RevokeSession(session.ID)
+			_ = h.sessionRepo.RevokeSession(session.ID, departmentID)
 		}
 	}
 

@@ -80,12 +80,13 @@ type DepartmentRoles struct {
 }
 
 type AuthModel struct {
-	UserID    string        `gorm:"type:varchar(36);unique_index"`
-	Token     string        `gorm:"primaryKey;type:varchar(128)"`
-	Type      AuthModelType `gorm:"primaryKey;type:varchar(36)"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index"`
+	UserID       string        `gorm:"type:varchar(36);unique_index"`
+	Token        string        `gorm:"primaryKey;type:varchar(128)"`
+	Type         AuthModelType `gorm:"primaryKey;type:varchar(36)"`
+	DepartmentID string        `gorm:"type:varchar(36);index"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    gorm.DeletedAt `gorm:"index"`
 }
 
 type DepartmentConfig struct {
@@ -100,6 +101,7 @@ type PasswordHistory struct {
 	gorm.Model
 	ID           string `gorm:"primaryKey;type:varchar(36)"`
 	UserID       string `gorm:"type:varchar(36);index"`
+	DepartmentID string `gorm:"type:varchar(36);index"`
 	PasswordHash string `gorm:"type:varchar(255)"`
 	CreatedAt    time.Time
 }

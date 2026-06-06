@@ -1,39 +1,29 @@
 package repository
 
 import (
-	"gorm.io/gorm"
-
-	"uas/internal/constants"
 	"uas/internal/models"
+	"uas/pkg/storage/mysql"
+
+	"gorm.io/gorm"
 )
 
 type UserRepository interface {
-	FindById(id string) (*models.UserModel, error)
-	FindByEmail(email string) (*models.UserModel, error)
-	FindByEmailAndDepartment(email, departmentID string) (*models.UserModel, error)
-	FindByPhoneNumber(phoneNumber string) (*models.UserModel, error)
+	FindById(id, departmentID string) (*models.UserModel, error)
+	FindByEmail(email, departmentID string) (*models.UserModel, error)
+	FindByPhoneNumber(phoneNumber, departmentID string) (*models.UserModel, error)
 	Create(user *models.UserModel) error
-	Delete(id string) error
-	Save(user *models.UserModel) error
+	Delete(id, departmentID string) error
+	Save(user *models.UserModel, departmentID string) error
 }
 
 type GormUserRepository struct {
 	db *gorm.DB
 }
 
-func (r *GormUserRepository) FindByEmail(id string) (*models.UserModel, error) {
+func (r *GormUserRepository) FindByEmail(email, departmentID string) (*models.UserModel, error) {
 	var user models.UserModel
-	if err := r.db.Where(constants.FindByEmailQuery, id).First(&user).Error; err != nil {
-		return nil, err
-	}
-	return &user, nil
-}
-
-func (r *GormUserRepository) FindByEmailAndDepartment(email, departmentID string) (*models.UserModel, error) {
-	var user models.UserModel
-	if err := r.db.
-		Joins("JOIN department_roles ON department_roles.user_id = users.id").
-		Where("users.email = ? AND department_roles.id = ?", email, departmentID).
+	if err := r.db.Scopes(mysql.UserTenantScope(departmentID)).
+		Where("users.email = ?", email).
 		First(&user).Error; err != nil {
 		return nil, err
 	}
@@ -44,25 +34,31 @@ func (r *GormUserRepository) Create(user *models.UserModel) error {
 	return r.db.Create(user).Error
 }
 
-func (r *GormUserRepository) Delete(id string) error {
-	return r.db.Delete(&models.UserModel{}, id).Error
+func (r *GormUserRepository) Delete(id, departmentID string) error {
+	return r.db.Scopes(mysql.UserTenantScope(departmentID)).
+		Delete(&models.UserModel{}, id).Error
 }
 
-func (r *GormUserRepository) FindById(id string) (*models.UserModel, error) {
+func (r *GormUserRepository) FindById(id, departmentID string) (*models.UserModel, error) {
 	var user models.UserModel
-	if err := r.db.Where(constants.FindByIdQuery, id).First(&user).Error; err != nil {
+	if err := r.db.Scopes(mysql.UserTenantScope(departmentID)).
+		Where("users.id = ?", id).
+		First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
 }
 
-func (r *GormUserRepository) Save(user *models.UserModel) error {
-	return r.db.Save(user).Error
+func (r *GormUserRepository) Save(user *models.UserModel, departmentID string) error {
+	return r.db.Scopes(mysql.UserTenantScope(departmentID)).
+		Save(user).Error
 }
 
-func (r *GormUserRepository) FindByPhoneNumber(phoneNumber string) (*models.UserModel, error) {
+func (r *GormUserRepository) FindByPhoneNumber(phoneNumber, departmentID string) (*models.UserModel, error) {
 	var user models.UserModel
-	if err := r.db.Where(constants.FindByPhoneNumberQuery, phoneNumber).First(&user).Error; err != nil {
+	if err := r.db.Scopes(mysql.UserTenantScope(departmentID)).
+		Where("users.phone_number = ?", phoneNumber).
+		First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil
