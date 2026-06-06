@@ -82,15 +82,6 @@ type Config struct {
 	EnableProfiling bool `env:"ENABLE_PROFILING" envDefault:"false"`
 	Debug           bool `env:"DEBUG" envDefault:"false"`
 
-	// Additional configuration for profiling
-	JwtExpiry          int `env:"JWT_EXPIRY" envDefault:"15"`
-	RefreshTokenExpiry int `env:"REFRESH_TOKEN_EXPIRY" envDefault:"24"`
-	LockoutDuration    int `env:"LOCKOUT_DURATION" envDefault:"15"`
-	SessionTimeout     int `env:"SESSION_TIMEOUT" envDefault:"60"`
-	MaxRequestSize     int `env:"MAX_REQUEST_SIZE" envDefault:"10485760"`
-	RateLimitRequests  int `env:"RATE_LIMIT_REQUESTS" envDefault:"100"`
-	RateLimitWindow    int `env:"RATE_LIMIT_WINDOW" envDefault:"60"`
-
 	// Magic link configuration
 	MagicLinkBaseUrl     string `env:"MAGIC_LINK_BASE_URL" envDefault:"http://localhost:8080"`
 	PasswordResetBaseUrl string `env:"PASSWORD_RESET_BASE_URL" envDefault:"http://localhost:8080/api/v1/users/credential/reset-password"`

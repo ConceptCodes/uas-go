@@ -38,19 +38,7 @@ func Run() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error while connecting to database")
 	}
-	if err := db.AutoMigrate(
-		&models.DepartmentModel{},
-		&models.UserModel{},
-		&models.DepartmentRoles{},
-		&models.AuthModel{},
-		&models.DepartmentConfig{},
-		&models.PasswordHistory{},
-		&models.SecurityEvent{},
-		&models.Session{},
-		&models.AuditLog{},
-	); err != nil {
-		log.Fatal().Err(err).Msg("Error while auto-migrating database schema")
-	}
+	log.Warn().Msg("AutoMigrate disabled — schema must be applied via SQL migrations")
 
 	emailClient := email.New()
 	redisClient := redis.New(*log, ctx)
@@ -106,6 +94,7 @@ func Run() {
 		passwordHelper,
 		encryptionHelper,
 		tokenHelper,
+		securityLoggerHelper,
 	)
 
 	router := mux.NewRouter()
@@ -128,8 +117,7 @@ func Run() {
 	requestLogger := middleware.NewLoggerMiddleware(log)
 	router.Use(requestLogger.Start)
 
-	rateLimitMiddleware := middleware.NewRateLimitMiddleware(log, metricsHelper)
-	rateLimitMiddleware.StartCleanup()
+	rateLimitMiddleware := middleware.NewRateLimitMiddleware(log, metricsHelper).WithRedis(redisClient)
 	router.Use(rateLimitMiddleware.Handle)
 
 	if config.AppConfig.EnableMetrics {
@@ -151,7 +139,7 @@ func Run() {
 	router.Use(middleware.ContentTypeJSON)
 
 	rbacMiddleware := middleware.NewRBACMiddleware(log, departmentRoleRepo, authHelper)
-	endpointRateLimitMiddleware := middleware.NewEndpointRateLimitMiddleware(log, redisClient)
+	endpointRateLimitMiddleware := middleware.NewEndpointRateLimitMiddleware(log, redisClient).WithAuthHelper(authHelper)
 
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsRegisterEndpoint, 5, "ip")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.CredentialsLoginEndpoint, 5, "ip")

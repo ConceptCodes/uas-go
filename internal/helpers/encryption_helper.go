@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"uas/config"
 
 	"github.com/rs/zerolog"
@@ -94,22 +95,31 @@ func (e *EncryptionHelper) GenerateSalt() (string, error) {
 }
 
 func (e *EncryptionHelper) MaskEmail(email string) string {
-	if len(email) <= 4 {
-		return "****"
+	at := strings.LastIndex(email, "@")
+	if at <= 0 {
+		if len(email) <= 2 {
+			return "***"
+		}
+		return email[:1] + "***" + email[len(email)-1:]
 	}
-	return email[:2] + "****" + email[len(email)-2:]
+	local := email[:at]
+	domain := email[at:]
+	if len(local) <= 1 {
+		return "***" + domain
+	}
+	return local[:1] + "***" + local[len(local)-1:] + domain
 }
 
 func (e *EncryptionHelper) MaskPhone(phone string) string {
 	if len(phone) <= 4 {
 		return "****"
 	}
-	return "****" + phone[len(phone)-4:]
+	return phone[:2] + "****" + phone[len(phone)-2:]
 }
 
 func (e *EncryptionHelper) MaskName(name string) string {
 	if len(name) <= 2 {
-		return "**"
+		return name[:1] + "*"
 	}
-	return string(name[0]) + "****"
+	return name[:1] + strings.Repeat("*", len(name)-1)
 }

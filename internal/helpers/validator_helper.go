@@ -32,11 +32,9 @@ func NewValidatorHelper(log *zerolog.Logger, responseHelper *ResponseHelper) *Va
 }
 
 func noSQLKeywords(fl validator.FieldLevel) bool {
-	sqlKeywords := []string{"SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT", "DROP", "CREATE", "ALTER", "TRUNCATE"}
-
 	value := fl.Field().String()
-	for _, keyword := range sqlKeywords {
-		if strings.Contains(strings.ToUpper(value), keyword) {
+	for _, r := range value {
+		if r == 0x00 || r == '\n' || r == '\r' {
 			return false
 		}
 	}

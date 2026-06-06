@@ -6,6 +6,7 @@ import (
 	"uas/internal/models"
 	repository "uas/internal/repositories"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -48,7 +49,7 @@ func (h *AuditHelper) LogAuditEntry(auditLog *models.AuditLog) error {
 
 func (h *AuditHelper) LogSecurityEvent(userID, departmentID, deviceID, ipAddress, userAgent, description string) error {
 	auditLog := &models.AuditLog{
-		ID:           generateUUID(),
+		ID:           uuid.New().String(),
 		UserID:       &userID,
 		DepartmentID: &departmentID,
 		Action:       models.AuditActionSuspiciousActivity,
@@ -67,7 +68,7 @@ func (h *AuditHelper) LogSecurityEvent(userID, departmentID, deviceID, ipAddress
 
 func (h *AuditHelper) LogAccountLock(userID, departmentID, ipAddress, userAgent, reason string) error {
 	auditLog := &models.AuditLog{
-		ID:           generateUUID(),
+		ID:           uuid.New().String(),
 		UserID:       &userID,
 		DepartmentID: &departmentID,
 		Action:       models.AuditActionAccountLock,
@@ -85,7 +86,7 @@ func (h *AuditHelper) LogAccountLock(userID, departmentID, ipAddress, userAgent,
 
 func (h *AuditHelper) LogAccountUnlock(userID, departmentID, ipAddress, userAgent, reason string) error {
 	auditLog := &models.AuditLog{
-		ID:           generateUUID(),
+		ID:           uuid.New().String(),
 		UserID:       &userID,
 		DepartmentID: &departmentID,
 		Action:       models.AuditActionAccountUnlock,
@@ -106,9 +107,4 @@ func safeString(s *string) string {
 		return ""
 	}
 	return *s
-}
-
-func generateUUID() string {
-	// Simple UUID generation - in production, use a proper UUID library
-	return fmt.Sprintf("%x", time.Now().UnixNano())
 }

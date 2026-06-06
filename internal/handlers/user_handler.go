@@ -36,6 +36,7 @@ type UserHandler struct {
 	passwordHelper      *helpers.PasswordHelper
 	encryptionHelper    *helpers.EncryptionHelper
 	tokenHelper         *helpers.TokenHelper
+	securityLogger      *helpers.SecurityLoggerHelper
 }
 
 func NewUserHandler(
@@ -55,6 +56,7 @@ func NewUserHandler(
 	passwordHelper *helpers.PasswordHelper,
 	encryptionHelper *helpers.EncryptionHelper,
 	tokenHelper *helpers.TokenHelper,
+	securityLogger *helpers.SecurityLoggerHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:            userRepo,
@@ -73,6 +75,7 @@ func NewUserHandler(
 		passwordHelper:      passwordHelper,
 		encryptionHelper:    encryptionHelper,
 		tokenHelper:         tokenHelper,
+		securityLogger:      securityLogger,
 	}
 }
 
@@ -172,6 +175,8 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 		h.responseHelper.SendErrorResponse(w, "Error w/ sending verification email", constants.InternalServerError, err)
 		return
 	}
+
+	h.securityLogger.LogAuthEvent(r, "register", userId, departmentId, "success", "")
 
 	res := &models.RegisterUserResponse{
 		UserID: userId,
@@ -338,9 +343,11 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		h.responseHelper.SendErrorResponse(w, "Error creating session", constants.InternalServerError, err)
 		return
 	}
+	h.securityLogger.LogAuthEvent(r, "login", user.ID, departmentId, "success", "")
 	h.authHelper.GenerateAccessCookie(access_token, w)
 	w.Header().Set(constants.JwtHeader, refresh_token)
 	h.responseHelper.SendSuccessResponse(w, "Successful login", nil)
+	return
 }
 
 // ForgotPasswordHandler godoc
@@ -889,6 +896,8 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 			_ = h.sessionRepo.RevokeSession(session.ID)
 		}
 	}
+
+	h.securityLogger.LogAuthEvent(r, "logout", "", "", "success", "")
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.AccessTokenCookie,

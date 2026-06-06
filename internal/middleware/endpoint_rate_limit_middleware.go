@@ -11,6 +11,9 @@ import (
 	"strconv"
 	"time"
 
+	"uas/internal/constants"
+	"uas/internal/helpers"
+
 	"github.com/go-redis/redis_rate/v10"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -22,9 +25,10 @@ type RateLimitConfig struct {
 }
 
 type EndpointRateLimitMiddleware struct {
-	log    *zerolog.Logger
-	rdb    *redis.Client
-	config map[string]RateLimitConfig
+	log        *zerolog.Logger
+	rdb        *redis.Client
+	authHelper *helpers.AuthHelper
+	config     map[string]RateLimitConfig
 }
 
 func NewEndpointRateLimitMiddleware(log *zerolog.Logger, rdb *redis.Client) *EndpointRateLimitMiddleware {
@@ -33,6 +37,11 @@ func NewEndpointRateLimitMiddleware(log *zerolog.Logger, rdb *redis.Client) *End
 		rdb:    rdb,
 		config: make(map[string]RateLimitConfig),
 	}
+}
+
+func (m *EndpointRateLimitMiddleware) WithAuthHelper(authHelper *helpers.AuthHelper) *EndpointRateLimitMiddleware {
+	m.authHelper = authHelper
+	return m
 }
 
 func (m *EndpointRateLimitMiddleware) RegisterEndpoint(path string, requestsPerMinute int, identifier string) {
@@ -83,13 +92,13 @@ func (m *EndpointRateLimitMiddleware) Start(next http.Handler) http.Handler {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			userId, ok := claims["userId"].(string)
-			if !ok {
-				m.log.Warn().Str("path", r.URL.Path).Msg("User identifier requested but userId claim not found")
+			sub, ok := claims["sub"].(string)
+			if !ok || sub == "" {
+				m.log.Warn().Str("path", r.URL.Path).Msg("User identifier requested but sub claim not found")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			identifier = userId
+			identifier = sub
 		default:
 			ipAddress, _, _ := net.SplitHostPort(r.RemoteAddr)
 			identifier = ipAddress
@@ -127,11 +136,26 @@ func (m *EndpointRateLimitMiddleware) Start(next http.Handler) http.Handler {
 }
 
 func (m *EndpointRateLimitMiddleware) extractUserClaims(r *http.Request) (map[string]interface{}, error) {
-	_, err := r.Cookie("access-token")
+	if m.authHelper == nil {
+		return nil, errors.New("auth helper not configured")
+	}
+
+	encoded, err := r.Cookie(constants.AccessTokenCookie)
 	if err != nil {
 		return nil, err
 	}
-	return nil, errors.New("user claims extraction is not configured")
+
+	token, err := m.authHelper.DecodeAccessCookie(encoded.Value)
+	if err != nil {
+		return nil, err
+	}
+
+	claims, err := m.authHelper.ParseAccessJwtToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	return claims, nil
 }
 
 func extractJSONField(r *http.Request, field string) string {

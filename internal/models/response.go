@@ -273,16 +273,15 @@ type ApplicationInfo struct {
 }
 
 type ConfigurationMetrics struct {
-	JWTExpiry          int  `json:"jwt_expiry"`
-	RefreshTokenExpiry int  `json:"refresh_token_expiry"`
-	MaxFailedAttempts  int  `json:"max_failed_attempts"`
-	LockoutDuration    int  `json:"lockout_duration"`
-	SessionTimeout     int  `json:"session_timeout"`
-	MaxRequestSize     int  `json:"max_request_size"`
-	RateLimitRequests  int  `json:"rate_limit_requests"`
-	RateLimitWindow    int  `json:"rate_limit_window"`
-	EnableMetrics      bool `json:"enable_metrics"`
-	EnableProfiling    bool `json:"enable_profiling"`
+	AccessJwtExpire     int  `json:"access_jwt_expire"`
+	RefreshJwtExpire    int  `json:"refresh_jwt_expire"`
+	MaxFailedAttempts   int  `json:"max_failed_attempts"`
+	AccountLockMinutes  int  `json:"account_lock_minutes"`
+	MaxRequestSizeMB    int  `json:"max_request_size_mb"`
+	RateLimitCapacity   int  `json:"rate_limit_capacity"`
+	TimeUnitInSeconds   int  `json:"time_unit_seconds"`
+	EnableMetrics       bool `json:"enable_metrics"`
+	EnableProfiling     bool `json:"enable_profiling"`
 }
 
 type ProfilingIndexResponse struct {
