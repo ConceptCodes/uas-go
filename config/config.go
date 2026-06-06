@@ -40,6 +40,8 @@ type Config struct {
 
 	AccessJwtSecret string `env:"ACCESS_JWT_SECRET" envDefault:"CHANGE_ME_ACCESS_SECRET_MIN_32_CHARS"`
 	AccessJwtExpire int    `env:"ACCESS_JWT_EXPIRE" envDefault:"15"`
+	JwtIssuer       string `env:"JWT_ISSUER" envDefault:"uas"`
+	JwtAudience     string `env:"JWT_AUDIENCE" envDefault:"uas-api"`
 
 	RateLimitCapacity int `env:"RATE_LIMIT_CAPACITY" envDefault:"100"`
 	TimeUnitInSeconds int `env:"TIME_UNIT_IN_SECONDS" envDefault:"60"`

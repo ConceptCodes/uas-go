@@ -10,6 +10,7 @@ import (
 type UserRepository interface {
 	FindById(id string) (*models.UserModel, error)
 	FindByEmail(email string) (*models.UserModel, error)
+	FindByEmailAndDepartment(email, departmentID string) (*models.UserModel, error)
 	FindByPhoneNumber(phoneNumber string) (*models.UserModel, error)
 	Create(user *models.UserModel) error
 	Delete(id string) error
@@ -23,6 +24,17 @@ type GormUserRepository struct {
 func (r *GormUserRepository) FindByEmail(id string) (*models.UserModel, error) {
 	var user models.UserModel
 	if err := r.db.Where(constants.FindByEmailQuery, id).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func (r *GormUserRepository) FindByEmailAndDepartment(email, departmentID string) (*models.UserModel, error) {
+	var user models.UserModel
+	if err := r.db.
+		Joins("JOIN department_roles ON department_roles.user_id = users.id").
+		Where("users.email = ? AND department_roles.id = ?", email, departmentID).
+		First(&user).Error; err != nil {
 		return nil, err
 	}
 	return &user, nil

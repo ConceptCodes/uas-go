@@ -24,10 +24,16 @@ type AuthHelper struct {
 	log            *zerolog.Logger
 	departmentRepo repository.DepartmentRepository
 	redisHelper    RedisHelper
+	tokenHelper    *TokenHelper
 }
 
 func NewAuthHelper(log *zerolog.Logger, departmentRepo repository.DepartmentRepository, redisHelper RedisHelper) *AuthHelper {
 	return &AuthHelper{log: log, departmentRepo: departmentRepo, redisHelper: redisHelper}
+}
+
+func (h *AuthHelper) WithTokenHelper(th *TokenHelper) *AuthHelper {
+	h.tokenHelper = th
+	return h
 }
 
 func (h *AuthHelper) GenerateBasicAuthToken(tenantId string, tenantSecret string) string {

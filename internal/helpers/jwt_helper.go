@@ -8,16 +8,22 @@ import (
 	"uas/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant string) (string, error) {
-	h.log.Debug().Msgf("Generating JWT token for user: %s", user.Name)
+	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
+	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId":       user.ID,
-		"name":         user.Name,
-		"email":        user.Email,
-		"departmentId": tenant,
-		"exp":          time.Now().Add(time.Hour * time.Duration(config.AppConfig.AccessJwtExpire)).Unix(),
+		"sub": user.ID,
+		"jti": uuid.New().String(),
+		"tid": tenant,
+		"iss": config.AppConfig.JwtIssuer,
+		"aud": config.AppConfig.JwtAudience,
+		"iat": now.Unix(),
+		"nbf": now.Unix(),
+		"exp": now.Add(time.Hour * time.Duration(config.AppConfig.AccessJwtExpire)).Unix(),
+		"amr": []string{"pwd"},
 	})
 
 	token, err := t.SignedString([]byte(config.AppConfig.AccessJwtSecret))
@@ -29,15 +35,35 @@ func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant strin
 }
 
 func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, error) {
-	return parseJWT(tokenString, config.AppConfig.AccessJwtSecret)
+	claims, err := parseJWT(tokenString, config.AppConfig.AccessJwtSecret)
+	if err != nil {
+		return nil, err
+	}
+	if h.tokenHelper != nil {
+		jti, ok := claims["jti"].(string)
+		if ok && jti != "" {
+			blacklisted, _ := h.tokenHelper.IsTokenBlacklisted(jti)
+			if blacklisted {
+				return nil, errors.New("token has been revoked")
+			}
+		}
+	}
+	return claims, nil
 }
 
 func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant string) (string, error) {
-	h.log.Debug().Msgf("Generating JWT token for user: %s", user.Name)
+	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
+	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userId":       user.ID,
-		"departmentId": tenant,
-		"exp":          time.Now().Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
+		"sub": user.ID,
+		"jti": uuid.New().String(),
+		"tid": tenant,
+		"iss": config.AppConfig.JwtIssuer,
+		"aud": config.AppConfig.JwtAudience,
+		"iat": now.Unix(),
+		"nbf": now.Unix(),
+		"exp": now.Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
+		"amr": []string{"pwd"},
 	})
 
 	token, err := t.SignedString([]byte(config.AppConfig.RefreshJwtSecret))
@@ -49,26 +75,36 @@ func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant stri
 }
 
 func (h *AuthHelper) ParseRefreshJwtToken(tokenString string) (jwt.MapClaims, error) {
-	return parseJWT(tokenString, config.AppConfig.RefreshJwtSecret)
+	claims, err := parseJWT(tokenString, config.AppConfig.RefreshJwtSecret)
+	if err != nil {
+		return nil, err
+	}
+	if h.tokenHelper != nil {
+		jti, ok := claims["jti"].(string)
+		if ok && jti != "" {
+			blacklisted, _ := h.tokenHelper.IsTokenBlacklisted(jti)
+			if blacklisted {
+				return nil, errors.New("token has been revoked")
+			}
+		}
+	}
+	return claims, nil
 }
 
 func (h *AuthHelper) GenerateTokens(userID, userEmail, userName, tenant string) (string, string, error) {
-	h.log.Debug().Msgf("Generating JWT tokens for user: %s", userName)
+	h.log.Debug().Msgf("Generating JWT tokens for user: %s", userID)
 
-	// Create user model for token generation
 	user := &models.UserModel{
 		ID:    userID,
 		Email: userEmail,
 		Name:  userName,
 	}
 
-	// Generate access token
 	accessToken, err := h.GenerateAccessJwtToken(user, tenant)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	// Generate refresh token
 	refreshToken, err := h.GenerateRefreshJwtToken(user, tenant)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to generate refresh token: %w", err)

@@ -1,8 +1,9 @@
 package models
 
 type ForgotPasswordData struct {
-	Name string
-	Url  string
+	Name  string
+	Url   string
+	Token string
 }
 
 type VerifyEmailData struct {

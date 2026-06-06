@@ -35,6 +35,7 @@ type UserHandler struct {
 	loginAttemptHelper  *helpers.LoginAttemptHelper
 	passwordHelper      *helpers.PasswordHelper
 	encryptionHelper    *helpers.EncryptionHelper
+	tokenHelper         *helpers.TokenHelper
 }
 
 func NewUserHandler(
@@ -53,6 +54,7 @@ func NewUserHandler(
 	loginAttemptHelper *helpers.LoginAttemptHelper,
 	passwordHelper *helpers.PasswordHelper,
 	encryptionHelper *helpers.EncryptionHelper,
+	tokenHelper *helpers.TokenHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:            userRepo,
@@ -70,6 +72,7 @@ func NewUserHandler(
 		loginAttemptHelper:  loginAttemptHelper,
 		passwordHelper:      passwordHelper,
 		encryptionHelper:    encryptionHelper,
+		tokenHelper:         tokenHelper,
 	}
 }
 
@@ -213,26 +216,25 @@ func (h *UserHandler) CredentialsVerifyEmailHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	user, err := h.userRepo.FindByEmail(data.Email)
+	departmentId := helpers.GetDepartmentId(r)
+	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
 
 	if err != nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+		h.responseHelper.SendErrorResponse(w, "Invalid verification request", constants.Unauthorized, nil)
 		return
 	}
 
 	if user == nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "email: ", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, nil)
+		h.responseHelper.SendErrorResponse(w, "Invalid verification request", constants.Unauthorized, nil)
 		return
-	} else {
-		user.EmailVerified = true
-		err = h.userRepo.Save(user)
+	}
 
-		if err != nil {
-			h.responseHelper.SendErrorResponse(w, "Error verifying email", constants.InternalServerError, err)
-			return
-		}
+	user.EmailVerified = true
+	err = h.userRepo.Save(user)
+
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Error verifying email", constants.InternalServerError, err)
+		return
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Email verified successfully", nil)
@@ -264,7 +266,10 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	locked, err := h.loginAttemptHelper.IsAccountLocked(data.Email)
+	departmentId := helpers.GetDepartmentId(r)
+	lockoutKey := departmentId + ":" + data.Email
+
+	locked, err := h.loginAttemptHelper.IsAccountLocked(lockoutKey)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error checking account lock status")
 		h.responseHelper.SendErrorResponse(w, "Internal server error", constants.InternalServerError, err)
@@ -277,26 +282,25 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	user, err := h.userRepo.FindByEmail(data.Email)
+	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
 
 	if err != nil {
-		h.log.Error().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Error finding user")
-		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "email:", data.Email)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.InternalServerError, err)
+		h.log.Warn().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found in tenant")
+		h.loginAttemptHelper.RecordFailedAttempt(lockoutKey)
+		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
 	if user == nil {
-		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found")
-		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
+		h.log.Warn().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("User not found")
+		h.loginAttemptHelper.RecordFailedAttempt(lockoutKey)
 		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
 	if !user.EmailVerified {
-		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Email not verified")
-		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
+		h.log.Warn().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Email not verified")
+		h.loginAttemptHelper.RecordFailedAttempt(lockoutKey)
 		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
@@ -304,16 +308,15 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 	valid := h.authHelper.CheckPasswordHash(data.Password, user.Password)
 
 	if !valid {
-		h.log.Info().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Invalid password")
-		h.loginAttemptHelper.RecordFailedAttempt(data.Email)
-		attemptCount, _ := h.loginAttemptHelper.GetFailedAttemptCount(data.Email)
+		h.log.Warn().Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Invalid password")
+		h.loginAttemptHelper.RecordFailedAttempt(lockoutKey)
+		attemptCount, _ := h.loginAttemptHelper.GetFailedAttemptCount(lockoutKey)
 		delay := h.loginAttemptHelper.GetProgressiveDelay(attemptCount)
 		h.loginAttemptHelper.ApplyProgressiveDelay(r.Context(), delay)
 		h.responseHelper.SendErrorResponse(w, "Invalid credentials", constants.Unauthorized, nil)
 		return
 	}
 
-	departmentId := helpers.GetDepartmentId(r)
 	access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
 
 	if err != nil {
@@ -330,7 +333,7 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	h.loginAttemptHelper.ClearFailedAttempts(data.Email)
+	h.loginAttemptHelper.ClearFailedAttempts(lockoutKey)
 	if err := h.createSession(r, user, departmentId, refresh_token); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error creating session", constants.InternalServerError, err)
 		return
@@ -365,7 +368,8 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	user, err := h.userRepo.FindByEmail(data.Email)
+	departmentId := helpers.GetDepartmentId(r)
+	user, err := h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
 	if err != nil {
 		h.log.Warn().Err(err).Str("email", h.encryptionHelper.MaskEmail(data.Email)).Msg("Forgot password lookup failed")
 	}
@@ -391,11 +395,11 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 	}
 
 	baseURL := strings.TrimRight(config.AppConfig.PasswordResetBaseUrl, "/")
-	resetURL := fmt.Sprintf("%s?token=%s", baseURL, reset_token)
 
 	tmpl_data := models.ForgotPasswordData{
-		Name: user.Name,
-		Url:  resetURL,
+		Name:  user.Name,
+		Url:   baseURL,
+		Token: reset_token,
 	}
 
 	err = h.emailHelper.SendEmail(data.Email, "reset-password", tmpl_data)
@@ -423,21 +427,19 @@ func (h *UserHandler) CredentialsForgotPasswordHandler(w http.ResponseWriter, r 
 // @Failure 500 {object} ErrorResponse
 // @Router /users/credentials/reset-password/{token} [post]
 func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
-	params := r.URL.Query()
-	token := params.Get("token")
+	var data struct {
+		Token    string `json:"token" validate:"required"`
+		Password string `json:"password" validate:"required"`
+	}
 
-	if token == "" {
-		h.log.Error().Msg("Token is empty")
-		h.responseHelper.SendErrorResponse(w, "Token is empty", constants.BadRequest, nil)
+	err := json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
 		return
 	}
 
-	var data models.ResetPasswordRequest
-
-	err := json.NewDecoder(r.Body).Decode(&data)
-
-	if err != nil {
-		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+	if data.Token == "" {
+		h.responseHelper.SendErrorResponse(w, "Token is required", constants.BadRequest, nil)
 		return
 	}
 
@@ -451,23 +453,19 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	record, err := h.authRepo.FindByTokenAndType(token, models.ResetPassword)
-
+	record, err := h.authRepo.FindByTokenAndType(data.Token, models.ResetPassword)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Invalid or expired reset token", constants.BadRequest, err)
 		return
 	}
 
 	user, err := h.userRepo.FindById(record.UserID)
-
 	if err != nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User ", "id:", record.UserID)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.BadRequest, err)
+		h.responseHelper.SendErrorResponse(w, "Invalid reset token", constants.BadRequest, nil)
 		return
 	}
 
 	password_hash, err := h.authHelper.HashPassword(data.Password)
-
 	if err != nil {
 		h.log.Error().Err(err).Msg("Error hashing password")
 		h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
@@ -475,20 +473,17 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 	}
 
 	user.Password = password_hash
-
 	err = h.userRepo.Save(user)
-
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error resetting password", constants.InternalServerError, err)
 		return
 	}
 
-	if err := h.authRepo.DeleteByTokenAndType(token, models.ResetPassword); err != nil {
+	if err := h.authRepo.DeleteByTokenAndType(data.Token, models.ResetPassword); err != nil {
 		h.log.Warn().Err(err).Msg("Failed to delete reset token after password update")
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
-
 }
 
 func (h *UserHandler) SendOtpCode(w http.ResponseWriter, r *http.Request) {
@@ -630,13 +625,13 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	userID, ok := claims["userId"].(string)
+	userID, ok := claims["sub"].(string)
 	if !ok || userID == "" {
 		h.responseHelper.SendErrorResponse(w, "Invalid refresh token claims", constants.Unauthorized, nil)
 		return
 	}
 
-	departmentID, ok := claims["departmentId"].(string)
+	departmentID, ok := claims["tid"].(string)
 	if !ok || departmentID == "" {
 		h.responseHelper.SendErrorResponse(w, "Invalid refresh token claims", constants.Unauthorized, nil)
 		return
@@ -674,6 +669,15 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		h.responseHelper.SendErrorResponse(w, "Error rotating refresh token", constants.InternalServerError, err)
 		return
 	}
+
+	jti, _ := claims["jti"].(string)
+	if jti != "" {
+		exp := time.Unix(int64(claims["exp"].(float64)), 0)
+		if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
+			h.log.Warn().Err(err).Msg("Failed to blacklist old refresh token JTI")
+		}
+	}
+
 	if err := h.createSession(r, user, departmentID, newRefreshToken); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error creating session", constants.InternalServerError, err)
 		return
@@ -699,12 +703,13 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	user, err = h.userRepo.FindByEmail(data.Email)
 	departmentId := helpers.GetDepartmentId(r)
 	if departmentId == "" {
 		h.responseHelper.SendErrorResponse(w, "Missing department context", constants.Unauthorized, nil)
 		return
 	}
+
+	user, err = h.userRepo.FindByEmailAndDepartment(data.Email, departmentId)
 
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -758,9 +763,11 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	baseURL := strings.TrimRight(config.AppConfig.MagicLinkBaseUrl, "/")
 	tmpl_data := models.MagicEmailData{
-		Name: user.Name,
-		Url:  fmt.Sprintf("%s%s?token=%s", config.AppConfig.MagicLinkBaseUrl, constants.MagicLinkVerifyEndpoint, token),
+		Name:  user.Name,
+		Url:   baseURL + constants.MagicLinkVerifyEndpoint,
+		Token: token,
 	}
 
 	err = h.emailHelper.SendEmail(data.Email, "magic-link", tmpl_data)
@@ -774,32 +781,33 @@ func (h *UserHandler) SendMagicLinkEmail(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Request) {
-	params := r.URL.Query()
-	token := params.Get("token")
-
-	if token == "" {
-		h.log.Error().Msg("Token is empty")
-		h.responseHelper.SendErrorResponse(w, "Token is empty", constants.BadRequest, nil)
+	var data struct {
+		Token string `json:"token" validate:"required"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+		h.responseHelper.SendErrorResponse(w, "Invalid request body", constants.BadRequest, err)
 		return
 	}
 
-	// Find the magic link token
-	record, err := h.authRepo.FindByTokenAndType(token, models.MagicLink)
+	if data.Token == "" {
+		h.log.Error().Msg("Token is empty")
+		h.responseHelper.SendErrorResponse(w, "Token is required", constants.BadRequest, nil)
+		return
+	}
+
+	record, err := h.authRepo.FindByTokenAndType(data.Token, models.MagicLink)
 	if err != nil {
 		h.log.Error().Err(err).Msg("Failed to find magic link token")
 		h.responseHelper.SendErrorResponse(w, "Invalid or expired magic link", constants.BadRequest, err)
 		return
 	}
 
-	// Find the user
 	user, err := h.userRepo.FindById(record.UserID)
 	if err != nil {
-		err_message := fmt.Sprintf(constants.EntityNotFound, "User", "id", record.UserID)
-		h.responseHelper.SendErrorResponse(w, err_message, constants.NotFound, err)
+		h.responseHelper.SendErrorResponse(w, "Invalid magic link", constants.BadRequest, nil)
 		return
 	}
 
-	// Generate JWT tokens for the user
 	departmentId := helpers.GetDepartmentId(r)
 	if departmentId == "" {
 		role, err := h.departmentRoleRepo.FindByUserID(user.ID)
@@ -822,16 +830,16 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Delete the magic link token after successful verification
-	err = h.authRepo.DeleteByTokenAndType(token, models.MagicLink)
+	err = h.authRepo.DeleteByTokenAndType(data.Token, models.MagicLink)
 	if err != nil {
 		h.log.Warn().Err(err).Msg("Failed to delete magic link token after verification")
 	}
 
-	// Return tokens to client
+	h.authHelper.GenerateAccessCookie(accessToken, w)
+	w.Header().Set(constants.JwtHeader, refreshToken)
+
 	response := map[string]interface{}{
-		"accessToken":  accessToken,
-		"refreshToken": refreshToken,
+		"accessToken": accessToken,
 		"user": map[string]interface{}{
 			"id":    user.ID,
 			"name":  user.Name,
@@ -840,6 +848,60 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Magic link verified successfully", response)
+}
+
+func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	refreshToken := r.Header.Get(constants.JwtHeader)
+	if refreshToken == "" {
+		cookie, err := r.Cookie(constants.AccessTokenCookie)
+		if err == nil && cookie.Value != "" {
+			decoded, err := h.authHelper.DecodeAccessCookie(cookie.Value)
+			if err == nil && decoded != "" {
+				claims, err := h.authHelper.ParseAccessJwtToken(decoded)
+				if err == nil {
+					if jti, ok := claims["jti"].(string); ok && jti != "" {
+						exp := time.Unix(int64(claims["exp"].(float64)), 0)
+						if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
+							h.log.Warn().Err(err).Msg("Failed to blacklist access token JTI on logout")
+						}
+					}
+					if sub, ok := claims["sub"].(string); ok && sub != "" {
+						_ = h.sessionRepo.RevokeAllUserSessions(sub)
+					}
+				}
+			}
+		}
+	} else {
+		claims, err := h.authHelper.ParseRefreshJwtToken(refreshToken)
+		if err == nil {
+			if jti, ok := claims["jti"].(string); ok && jti != "" {
+				exp := time.Unix(int64(claims["exp"].(float64)), 0)
+				if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
+					h.log.Warn().Err(err).Msg("Failed to blacklist refresh token JTI on logout")
+				}
+			}
+			if sub, ok := claims["sub"].(string); ok && sub != "" {
+				_ = h.sessionRepo.RevokeAllUserSessions(sub)
+			}
+		}
+		session, err := h.sessionRepo.FindByRefreshToken(refreshToken)
+		if err == nil && session != nil {
+			_ = h.sessionRepo.RevokeSession(session.ID)
+		}
+	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     constants.AccessTokenCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   config.AppConfig.CookieSecure,
+		SameSite: http.SameSiteStrictMode,
+	})
+
+	w.Header().Set(constants.JwtHeader, "")
+	h.responseHelper.SendSuccessResponse(w, "Logged out successfully", nil)
 }
 
 func (h *UserHandler) createSession(r *http.Request, user *models.UserModel, departmentID, refreshToken string) error {

@@ -68,6 +68,7 @@ const (
 	MagicLinkSendEndpoint         = ApiPrefix + "/users/magic-link/send"
 	MagicLinkVerifyEndpoint       = ApiPrefix + "/users/magic-link/verify"
 	RefreshTokenEndpoint          = ApiPrefix + "/users/refresh-token"
+	LogoutEndpoint                = ApiPrefix + "/users/logout"
 
 	// Context keys
 	RequestIdCtxKey    = "request_id"
