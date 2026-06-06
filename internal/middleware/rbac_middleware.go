@@ -61,17 +61,28 @@ func (m *RBACMiddleware) Authorize(roles []models.Role, next http.Handler) http.
 			return
 		}
 
-		userId, err := getStringClaim(claims, "userId")
+		userId, err := getStringClaim(claims, constants.JwtSubKey)
 		if err != nil {
-			m.log.Warn().Err(err).Msg("Invalid userId claim")
+			m.log.Warn().Err(err).Msg("Invalid sub claim")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
-		departmentId, err := getStringClaim(claims, "departmentId")
+		departmentId, err := getStringClaim(claims, constants.JwtTidKey)
 		if err != nil {
-			m.log.Warn().Err(err).Msg("Invalid departmentId claim")
+			m.log.Warn().Err(err).Msg("Invalid tid claim")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Assert JWT tid matches context tenant
+		contextTenant := helpers.GetDepartmentId(r)
+		if contextTenant != "" && departmentId != contextTenant {
+			m.log.Warn().
+				Str("jwt_tid", departmentId).
+				Str("context_tid", contextTenant).
+				Msg("JWT tid does not match context tenant — possible cross-tenant access")
+			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
 

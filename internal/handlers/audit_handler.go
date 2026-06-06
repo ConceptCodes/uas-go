@@ -15,6 +15,13 @@ import (
 	"gorm.io/gorm"
 )
 
+func (h *AuditHandler) enforceTenantScope(r *http.Request, filter *models.AuditLogFilter) {
+	contextTenant := helpers.GetDepartmentId(r)
+	if contextTenant != "" && (filter.DepartmentID == nil || *filter.DepartmentID == "") {
+		filter.DepartmentID = &contextTenant
+	}
+}
+
 type AuditHandler struct {
 	auditLogRepo    repository.AuditLogRepository
 	log             *zerolog.Logger
@@ -124,6 +131,8 @@ func (h *AuditHandler) GetAuditLogs(w http.ResponseWriter, r *http.Request) {
 	filter.Limit = &limit
 	filter.Offset = &offset
 
+	h.enforceTenantScope(r, filter)
+
 	// Query audit logs
 	result, err := h.auditLogRepo.FindMany(filter)
 	if err != nil {
@@ -157,6 +166,9 @@ func (h *AuditHandler) GetAuditLogByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	filter := &models.AuditLogFilter{}
+	h.enforceTenantScope(r, filter)
+
 	auditLog, err := h.auditLogRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -165,6 +177,11 @@ func (h *AuditHandler) GetAuditLogByID(w http.ResponseWriter, r *http.Request) {
 		}
 		h.log.Error().Err(err).Str("auditId", id).Msg("Failed to get audit log")
 		h.responseHelper.SendErrorResponse(w, "Failed to get audit log", constants.InternalServerError, err)
+		return
+	}
+
+	if filter.DepartmentID != nil && *filter.DepartmentID != "" && auditLog.DepartmentID != nil && *auditLog.DepartmentID != *filter.DepartmentID {
+		h.responseHelper.SendErrorResponse(w, "Audit log not found", constants.NotFound, nil)
 		return
 	}
 
@@ -215,6 +232,8 @@ func (h *AuditHandler) GetAuditStats(w http.ResponseWriter, r *http.Request) {
 
 	filter.StartDate = startDate
 	filter.EndDate = endDate
+
+	h.enforceTenantScope(r, filter)
 
 	// Get total count
 	total, err := h.auditLogRepo.Count(filter)

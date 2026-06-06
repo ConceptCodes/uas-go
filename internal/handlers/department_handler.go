@@ -15,40 +15,44 @@ import (
 )
 
 type DepartmentHandler struct {
-	departmentRepo  repository.DepartmentRepository
-	logger          *zerolog.Logger
-	authHelper      *helpers.AuthHelper
-	responseHelper  *helpers.ResponseHelper
-	validatorHelper *helpers.ValidatorHelper
+	departmentRepo      repository.DepartmentRepository
+	sessionRepo         repository.SessionRepository
+	passwordHistoryRepo repository.PasswordHistoryRepository
+	authRepo            repository.AuthRepository
+	userRepo            repository.UserRepository
+	departmentRoleRepo  repository.DepartmentRoleRepository
+	logger              *zerolog.Logger
+	authHelper          *helpers.AuthHelper
+	responseHelper      *helpers.ResponseHelper
+	validatorHelper     *helpers.ValidatorHelper
 }
 
 func NewDepartmentHandler(
 	departmentRepo repository.DepartmentRepository,
+	sessionRepo repository.SessionRepository,
+	passwordHistoryRepo repository.PasswordHistoryRepository,
+	authRepo repository.AuthRepository,
+	userRepo repository.UserRepository,
+	departmentRoleRepo repository.DepartmentRoleRepository,
 	logger *zerolog.Logger,
 	authHelper *helpers.AuthHelper,
 	responseHelper *helpers.ResponseHelper,
 	validatorHelper *helpers.ValidatorHelper,
 ) *DepartmentHandler {
 	return &DepartmentHandler{
-		departmentRepo:  departmentRepo,
-		logger:          logger,
-		authHelper:      authHelper,
-		responseHelper:  responseHelper,
-		validatorHelper: validatorHelper,
+		departmentRepo:      departmentRepo,
+		sessionRepo:         sessionRepo,
+		passwordHistoryRepo: passwordHistoryRepo,
+		authRepo:            authRepo,
+		userRepo:            userRepo,
+		departmentRoleRepo:  departmentRoleRepo,
+		logger:              logger,
+		authHelper:          authHelper,
+		responseHelper:      responseHelper,
+		validatorHelper:     validatorHelper,
 	}
 }
 
-// OnboardDepartmentHandler godoc
-// @Summary Onboard Tenant
-// @Description Onboard Tenant
-// @Tags Tenant
-// @Accept  json
-// @Produce  json
-// @Success 200 {object} OnboardTenantResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tenants [post]
 func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *http.Request) {
 	var data models.OnboardTenantRequest
 
@@ -98,29 +102,29 @@ func (h *DepartmentHandler) OnboardDepartmentHandler(w http.ResponseWriter, r *h
 	h.responseHelper.SendSuccessResponse(w, "Department onboarded successfully", res)
 }
 
-// DeleteDepartmentHandler godoc
-// @Summary Delete Tenant
-// @Description Delete Tenant
-// @Tags Tenant
-// @Accept  json
-// @Produce  json
-// @Param id path string true "Tenant ID"
-// @Success 200 {object} DeleteTenantResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /tenants/{id} [delete]
 func (h *DepartmentHandler) DeleteDepartmentHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	tenant_id := vars["id"]
+	tenantID := vars["id"]
 
-	if tenant_id == "" {
-		message := fmt.Sprintf(constants.EntityNotFound, "Tenant", "id", tenant_id)
+	if tenantID == "" {
+		message := fmt.Sprintf(constants.EntityNotFound, "Tenant", "id", tenantID)
 		h.responseHelper.SendErrorResponse(w, message, constants.NotFound, nil)
 		return
 	}
 
-	err := h.departmentRepo.Delete(tenant_id)
+	if err := h.sessionRepo.RevokeAllByDepartment(tenantID); err != nil {
+		h.logger.Error().Err(err).Str("tenantID", tenantID).Msg("Failed to revoke sessions for tenant")
+		h.responseHelper.SendErrorResponse(w, "Failed to delete tenant", constants.InternalServerError, err)
+		return
+	}
+
+	if err := h.passwordHistoryRepo.DeleteByDepartment(tenantID); err != nil {
+		h.logger.Error().Err(err).Str("tenantID", tenantID).Msg("Failed to delete password history for tenant")
+		h.responseHelper.SendErrorResponse(w, "Failed to delete tenant", constants.InternalServerError, err)
+		return
+	}
+
+	err := h.departmentRepo.Delete(tenantID)
 
 	if err != nil {
 		message := fmt.Sprintf(constants.CreateEntityError, "Tenant")
@@ -128,6 +132,5 @@ func (h *DepartmentHandler) DeleteDepartmentHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// Note: if we introduced sessions, we would need to delete all sessions associated with the tenant here
 	h.responseHelper.SendSuccessResponse(w, "Tenant deleted successfully", nil)
 }

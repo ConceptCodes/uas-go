@@ -74,7 +74,7 @@ func Run() {
 
 	authHelper.WithTokenHelper(tokenHelper)
 
-	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
+	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, sessionRepo, passwordHistoryRepo, passwordResetRepo, userRepo, departmentRoleRepo, log, authHelper, responseHelper, validatorHelper)
 	healthHandler := handlers.NewHealthHandler(log, db, redisClient)
 	auditHandler := handlers.NewAuditHandler(auditLogRepo, log, responseHelper, validatorHelper)
 	userHandler := handlers.NewUserHandler(

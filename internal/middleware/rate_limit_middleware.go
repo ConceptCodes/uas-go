@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -49,7 +48,7 @@ func (rlm *RateLimitMiddleware) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		clientIP := rlm.getClientIP(r)
 
-		if rlm.isRateLimited(r.Context(), clientIP) {
+		if rlm.isRateLimited(r, clientIP) {
 			rlm.metricsHelper.RecordError("rate_limit", "TOO_MANY_REQUESTS")
 
 			traceID := helpers.TraceIDFromContext(r.Context())
@@ -83,12 +82,17 @@ func (rlm *RateLimitMiddleware) getClientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-func (rlm *RateLimitMiddleware) isRateLimited(ctx interface{}, clientIP string) bool {
+func (rlm *RateLimitMiddleware) isRateLimited(r *http.Request, clientIP string) bool {
 	if rlm.rdb == nil {
 		return false
 	}
 
-	key := fmt.Sprintf("global_rate_limit:%s", clientIP)
+	tenantID := helpers.GetDepartmentId(r)
+	if tenantID == "" {
+		tenantID = "global"
+	}
+
+	key := fmt.Sprintf("global_rate_limit:%s:%s", tenantID, clientIP)
 	limiter := redis_rate.NewLimiter(rlm.rdb)
 	limit := redis_rate.Limit{
 		Rate:   rlm.maxRequests,
@@ -96,7 +100,7 @@ func (rlm *RateLimitMiddleware) isRateLimited(ctx interface{}, clientIP string) 
 		Period: rlm.windowSize,
 	}
 
-	res, err := limiter.Allow(ctx.(context.Context), key, limit)
+	res, err := limiter.Allow(r.Context(), key, limit)
 	if err != nil {
 		rlm.log.Error().Err(err).Str("client_ip", clientIP).Msg("Redis rate limit check failed, allowing request")
 		return false

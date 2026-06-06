@@ -104,7 +104,11 @@ func (m *EndpointRateLimitMiddleware) Start(next http.Handler) http.Handler {
 			identifier = ipAddress
 		}
 
-		key := fmt.Sprintf("rate_limit:%s:%s", r.URL.Path, identifier)
+		tenantID := helpers.GetDepartmentId(r)
+		if tenantID == "" {
+			tenantID = "global"
+		}
+		key := fmt.Sprintf("rate_limit:%s:%s:%s", tenantID, r.URL.Path, identifier)
 		limiter := redis_rate.NewLimiter(m.rdb)
 		limit := redis_rate.Limit{
 			Rate:   config.RequestsPerMinute,
