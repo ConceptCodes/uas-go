@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"io"
+	"errors"
 	"net/http"
 	"uas/config"
 
@@ -22,8 +22,9 @@ func (m *RequestSizeMiddleware) Start(next http.Handler) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
 
 		if err := r.ParseForm(); err != nil {
-			if err == io.EOF {
-				m.log.Warn().Msg("Request body exceeded size limit")
+			var maxBytesErr *http.MaxBytesError
+			if errors.As(err, &maxBytesErr) {
+				m.log.Warn().Int64("limit", maxBytesErr.Limit).Msg("Request body exceeded size limit")
 				http.Error(w, "Request body too large", http.StatusRequestEntityTooLarge)
 				return
 			}
