@@ -46,8 +46,7 @@ func (e *EncryptionHelper) Encrypt(plaintext string) (string, error) {
 		return "", fmt.Errorf("failed to generate nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nonce, nil, []byte(plaintext), nil)
-
+	ciphertext := gcm.Seal(nil, nonce, []byte(plaintext), nil)
 	result := append(nonce, ciphertext...)
 	return base64.StdEncoding.EncodeToString(result), nil
 }
