@@ -37,6 +37,9 @@ type UserHandler struct {
 	encryptionHelper    *helpers.EncryptionHelper
 	tokenHelper         *helpers.TokenHelper
 	securityLogger      *helpers.SecurityLoggerHelper
+	mfaFactorRepo       repository.MfaFactorRepository
+	mfaHelper           *helpers.MfaHelper
+	webhookHelper       *helpers.WebhookHelper
 }
 
 func NewUserHandler(
@@ -57,6 +60,9 @@ func NewUserHandler(
 	encryptionHelper *helpers.EncryptionHelper,
 	tokenHelper *helpers.TokenHelper,
 	securityLogger *helpers.SecurityLoggerHelper,
+	mfaFactorRepo repository.MfaFactorRepository,
+	mfaHelper *helpers.MfaHelper,
+	webhookHelper *helpers.WebhookHelper,
 ) *UserHandler {
 	return &UserHandler{
 		userRepo:            userRepo,
@@ -76,6 +82,9 @@ func NewUserHandler(
 		encryptionHelper:    encryptionHelper,
 		tokenHelper:         tokenHelper,
 		securityLogger:      securityLogger,
+		mfaFactorRepo:       mfaFactorRepo,
+		mfaHelper:           mfaHelper,
+		webhookHelper:       webhookHelper,
 	}
 }
 
@@ -177,6 +186,14 @@ func (h *UserHandler) CredentialsRegisterUserHandler(w http.ResponseWriter, r *h
 	}
 
 	h.securityLogger.LogAuthEvent(r, "register", userId, departmentId, "success", "")
+
+	if h.webhookHelper != nil {
+		h.webhookHelper.FireEvent(departmentId, models.WebhookEventUserCreated, map[string]interface{}{
+			"userId":    userId,
+			"email":     data.Email,
+			"name":      data.Name,
+		})
+	}
 
 	res := &models.RegisterUserResponse{
 		UserID: userId,
@@ -322,6 +339,46 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	if h.mfaFactorRepo != nil {
+		mfaCount, _ := h.mfaFactorRepo.CountActiveByUserID(user.ID, departmentId)
+		if mfaCount > 0 {
+			mfaToken, err := h.mfaHelper.CreateMFATempToken(user.ID, departmentId)
+			if err != nil {
+				h.log.Error().Err(err).Msg("Error creating MFA temp token")
+				h.responseHelper.SendErrorResponse(w, "Error initiating MFA challenge", constants.InternalServerError, err)
+				return
+			}
+
+			factors, _ := h.mfaFactorRepo.FindByUserID(user.ID, departmentId)
+			var factorResponses []models.MfaFactorResponse
+			for _, f := range factors {
+				factorResponses = append(factorResponses, models.MfaFactorResponse{
+					ID:         f.ID,
+					FactorType: string(f.FactorType),
+					Name:       f.Name,
+					IsPrimary:  f.IsPrimary,
+				})
+			}
+
+			h.loginAttemptHelper.ClearFailedAttempts(lockoutKey)
+			h.securityLogger.LogAuthEvent(r, "login_mfa_required", user.ID, departmentId, "success", "")
+
+			response := models.LoginMFARequiredResponse{
+				Message:     "MFA verification required",
+				MFARequired: true,
+				MFAToken:    mfaToken,
+				Factors:     factorResponses,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(models.SuccessResponse{
+				Message: "MFA verification required",
+				Data:    response,
+			})
+			return
+		}
+	}
+
 	access_token, err := h.authHelper.GenerateAccessJwtToken(user, departmentId)
 
 	if err != nil {
@@ -344,6 +401,12 @@ func (h *UserHandler) CredentialsLoginUserHandler(w http.ResponseWriter, r *http
 		return
 	}
 	h.securityLogger.LogAuthEvent(r, "login", user.ID, departmentId, "success", "")
+	if h.webhookHelper != nil {
+		h.webhookHelper.FireEvent(departmentId, models.WebhookEventUserLogin, map[string]interface{}{
+			"userId": user.ID,
+			"email":  user.Email,
+		})
+	}
 	h.authHelper.GenerateAccessCookie(access_token, w)
 	w.Header().Set(constants.JwtHeader, refresh_token)
 	h.responseHelper.SendSuccessResponse(w, "Successful login", nil)
@@ -494,6 +557,12 @@ func (h *UserHandler) CredentialsResetPasswordHandler(w http.ResponseWriter, r *
 
 	if err := h.authRepo.DeleteByTokenAndType(data.Token, models.ResetPassword, tokenDepartmentID); err != nil {
 		h.log.Warn().Err(err).Msg("Failed to delete reset token after password update")
+	}
+
+	if h.webhookHelper != nil {
+		h.webhookHelper.FireEvent(tokenDepartmentID, models.WebhookEventPasswordChanged, map[string]interface{}{
+			"userId": user.ID,
+		})
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
@@ -907,6 +976,11 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.securityLogger.LogAuthEvent(r, "logout", "", "", "success", "")
+	if h.webhookHelper != nil {
+		h.webhookHelper.FireEvent(helpers.GetDepartmentId(r), models.WebhookEventUserLogout, map[string]interface{}{
+			"userId": helpers.GetUserId(r),
+		})
+	}
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     constants.AccessTokenCookie,
