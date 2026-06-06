@@ -30,6 +30,7 @@ func (m *TraceRequestMiddleware) Start(next http.Handler) http.Handler {
 		}
 
 		w.Header().Add(constants.TraceIdHeader, requestId)
+		r = helpers.SetRequestId(r, requestId)
 
 		authHeader := r.Header.Get(constants.AuthorizationHeader)
 		authToken := strings.TrimPrefix(authHeader, "Bearer ")
@@ -42,21 +43,8 @@ func (m *TraceRequestMiddleware) Start(next http.Handler) http.Handler {
 				return
 			}
 			r = helpers.SetDepartmentId(r, tenantID)
-		} else if requiresTenantAuth(r.URL.Path) {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
 		}
-
-		r = helpers.SetRequestId(r, requestId)
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func requiresTenantAuth(path string) bool {
-	return path == constants.CredentialsRegisterEndpoint ||
-		path == constants.CredentialsLoginEndpoint ||
-		path == constants.OtpSendEndpoint ||
-		path == constants.OtpVerifyEndpoint ||
-		path == constants.MagicLinkSendEndpoint
 }

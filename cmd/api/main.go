@@ -82,8 +82,9 @@ func Run() {
 	}
 	metricsHelper := helpers.NewMetricsHelper(log)
 	retentionService := services.NewRetentionService(auditLogRepo, log)
-	_ = tokenHelper
 	_ = securityLoggerHelper
+
+	authHelper.WithTokenHelper(tokenHelper)
 
 	DepartmentHandler := handlers.NewDepartmentHandler(departmentRepo, log, authHelper, responseHelper, validatorHelper)
 	healthHandler := handlers.NewHealthHandler(log, db, redisClient)
@@ -104,12 +105,22 @@ func Run() {
 		loginAttemptHelper,
 		passwordHelper,
 		encryptionHelper,
+		tokenHelper,
 	)
 
 	router := mux.NewRouter()
 
+	errorMiddleware := middleware.NewErrorMiddleware(log)
+	router.Use(errorMiddleware.Handle)
+
 	traceMiddleware := middleware.NewTraceRequestMiddleware(log, authHelper)
 	router.Use(traceMiddleware.Start)
+
+	tenantResolverMiddleware := middleware.NewTenantResolverMiddleware(log)
+	router.Use(tenantResolverMiddleware.Resolve)
+
+	csrfMiddleware := middleware.NewCSRFMiddleware(log)
+	router.Use(csrfMiddleware.Protect)
 
 	auditMiddleware := middleware.NewAuditMiddleware(log, auditHelper)
 	router.Use(auditMiddleware.Log)
@@ -155,59 +166,38 @@ func Run() {
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.MagicLinkSendEndpoint, 3, "email")
 
 	var AdminAccess = []models.Role{models.Admin}
-	// var UserAccess = []models.Role{models.User}
 
 	router.HandleFunc(constants.OnboardTenantEndpoint, DepartmentHandler.OnboardDepartmentHandler).Methods(http.MethodPost)
 	healthHandler.RegisterRoutes(router)
 
-	delTenant := router.Methods(http.MethodDelete).Subrouter()
+	// Tenant-required routes — all use the tenant auth + endpoint rate limiting
+	tenantSub := router.PathPrefix(constants.ApiPrefix).Subrouter()
+	tenantSub.Use(endpointRateLimitMiddleware.Start)
+
+	delTenant := tenantSub.Methods(http.MethodDelete).Subrouter()
 	delTenant.HandleFunc(constants.DeleteTenantEndpoint, DepartmentHandler.DeleteDepartmentHandler)
 	delTenant.Use(func(next http.Handler) http.Handler {
 		return rbacMiddleware.Authorize(AdminAccess, next)
 	})
 
-	registerSub := router.Methods(http.MethodPost).Subrouter()
-	registerSub.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler)
-	registerSub.HandleFunc(constants.CredentialsRegisterEndpointV2, userHandler.CredentialsRegisterUserHandler)
-	registerSub.Use(endpointRateLimitMiddleware.Start)
+	tenantSub.HandleFunc(constants.CredentialsRegisterEndpoint, userHandler.CredentialsRegisterUserHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsRegisterEndpointV2, userHandler.CredentialsRegisterUserHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsLoginEndpointV2, userHandler.CredentialsLoginUserHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsForgotEndpointV2, userHandler.CredentialsForgotPasswordHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsVerifyEndpoint, userHandler.CredentialsVerifyEmailHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsVerifyEndpointV2, userHandler.CredentialsVerifyEmailHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.CredentialsResetEndpointV2, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.MagicLinkSendEndpoint, userHandler.SendMagicLinkEmail).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.MagicLinkVerifyEndpoint, userHandler.VerifyMagicLinkEmail).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.RefreshTokenEndpoint, userHandler.RefreshAccessTokenHandler).Methods(http.MethodPost)
+	tenantSub.HandleFunc(constants.LogoutEndpoint, userHandler.LogoutHandler).Methods(http.MethodPost)
 
-	loginSub := router.Methods(http.MethodPost).Subrouter()
-	loginSub.HandleFunc(constants.CredentialsLoginEndpoint, userHandler.CredentialsLoginUserHandler)
-	loginSub.HandleFunc(constants.CredentialsLoginEndpointV2, userHandler.CredentialsLoginUserHandler)
-	loginSub.Use(endpointRateLimitMiddleware.Start)
-
-	forgotSub := router.Methods(http.MethodPost).Subrouter()
-	forgotSub.HandleFunc(constants.CredentialsForgotEndpoint, userHandler.CredentialsForgotPasswordHandler)
-	forgotSub.HandleFunc(constants.CredentialsForgotEndpointV2, userHandler.CredentialsForgotPasswordHandler)
-	forgotSub.Use(endpointRateLimitMiddleware.Start)
-
-	verifySub := router.Methods(http.MethodPost).Subrouter()
-	verifySub.HandleFunc(constants.CredentialsVerifyEndpoint, userHandler.CredentialsVerifyEmailHandler)
-	verifySub.HandleFunc(constants.CredentialsVerifyEndpointV2, userHandler.CredentialsVerifyEmailHandler)
-	verifySub.Use(endpointRateLimitMiddleware.Start)
-
-	router.HandleFunc(constants.CredentialsResetEndpoint, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
-	router.HandleFunc(constants.CredentialsResetEndpointV2, userHandler.CredentialsResetPasswordHandler).Methods(http.MethodPost)
-
-	// Magic link endpoints
-	magicLinkSendSub := router.Methods(http.MethodPost).Subrouter()
-	magicLinkSendSub.HandleFunc(constants.MagicLinkSendEndpoint, userHandler.SendMagicLinkEmail)
-	magicLinkSendSub.Use(endpointRateLimitMiddleware.Start)
-
-	router.HandleFunc(constants.MagicLinkVerifyEndpoint, userHandler.VerifyMagicLinkEmail).Methods(http.MethodGet)
-
-	otpSendSub := router.Methods(http.MethodPost).Subrouter()
-	otpSendSub.HandleFunc(constants.OtpSendEndpoint, userHandler.SendOtpCode)
-	otpSendSub.Use(endpointRateLimitMiddleware.Start)
-
-	otpVerifySub := router.Methods(http.MethodPost).Subrouter()
-	otpVerifySub.HandleFunc(constants.OtpVerifyEndpoint, userHandler.VerifyOtpCode)
-	otpVerifySub.Use(endpointRateLimitMiddleware.Start)
-
-	refreshToken := router.Methods(http.MethodPost).Subrouter()
-	refreshToken.HandleFunc(constants.RefreshTokenEndpoint, userHandler.RefreshAccessTokenHandler)
-
-	auditSub := router.PathPrefix(constants.ApiPrefix + "/audit").Subrouter()
+	auditSub := tenantSub.PathPrefix("/audit").Subrouter()
 	auditSub.HandleFunc("/logs", auditHandler.GetAuditLogs).Methods(http.MethodGet)
 	auditSub.HandleFunc("/logs/{id}", auditHandler.GetAuditLogByID).Methods(http.MethodGet)
 	auditSub.HandleFunc("/stats", auditHandler.GetAuditStats).Methods(http.MethodGet)
