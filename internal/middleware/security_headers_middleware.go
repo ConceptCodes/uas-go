@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"uas/config"
+	"uas/internal/constants"
 
 	"github.com/rs/zerolog"
 )
@@ -25,7 +26,7 @@ func (m *SecurityHeadersMiddleware) Start(next http.Handler) http.Handler {
 			w.Header().Set("Sunset", "Sat, 31 Dec 2026 23:59:59 GMT")
 			w.Header().Set("Link", "</api/v1/users/credentials/login>; rel=\"successor-version\"")
 		}
-		if config.AppConfig.Env == "production" && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https") {
+		if config.AppConfig.Env == constants.ProductionEnv && (r.TLS != nil || r.Header.Get(constants.ForwardedProtoHeader) == "https") {
 			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 
@@ -39,7 +40,7 @@ func (m *SecurityHeadersMiddleware) Start(next http.Handler) http.Handler {
 			w.Header().Set("Expires", "0")
 		}
 
-		origin := r.Header.Get("Origin")
+		origin := r.Header.Get(constants.OriginHeader)
 		if origin != "" && isAllowedOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Vary", "Origin")

@@ -632,13 +632,13 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	userID, ok := claims["sub"].(string)
+	userID, ok := claims[constants.JwtSubKey].(string)
 	if !ok || userID == "" {
 		h.responseHelper.SendErrorResponse(w, "Invalid refresh token claims", constants.Unauthorized, nil)
 		return
 	}
 
-	departmentID, ok := claims["tid"].(string)
+	departmentID, ok := claims[constants.JwtTidKey].(string)
 	if !ok || departmentID == "" {
 		h.responseHelper.SendErrorResponse(w, "Invalid refresh token claims", constants.Unauthorized, nil)
 		return
@@ -677,7 +677,7 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	jti, _ := claims["jti"].(string)
+	jti, _ := claims[constants.JwtJtiKey].(string)
 	if jti != "" {
 		exp := time.Unix(int64(claims["exp"].(float64)), 0)
 		if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
@@ -866,13 +866,13 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 			if err == nil && decoded != "" {
 				claims, err := h.authHelper.ParseAccessJwtToken(decoded)
 				if err == nil {
-					if jti, ok := claims["jti"].(string); ok && jti != "" {
+					if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
 						exp := time.Unix(int64(claims["exp"].(float64)), 0)
 						if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
 							h.log.Warn().Err(err).Msg("Failed to blacklist access token JTI on logout")
 						}
 					}
-					if sub, ok := claims["sub"].(string); ok && sub != "" {
+					if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {
 						_ = h.sessionRepo.RevokeAllUserSessions(sub)
 					}
 				}
@@ -881,13 +881,13 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	} else {
 		claims, err := h.authHelper.ParseRefreshJwtToken(refreshToken)
 		if err == nil {
-			if jti, ok := claims["jti"].(string); ok && jti != "" {
+			if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
 				exp := time.Unix(int64(claims["exp"].(float64)), 0)
 				if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
 					h.log.Warn().Err(err).Msg("Failed to blacklist refresh token JTI on logout")
 				}
 			}
-			if sub, ok := claims["sub"].(string); ok && sub != "" {
+			if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {
 				_ = h.sessionRepo.RevokeAllUserSessions(sub)
 			}
 		}

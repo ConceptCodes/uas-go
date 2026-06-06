@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"uas/config"
+	"uas/internal/constants"
 
 	"github.com/rs/zerolog"
 )
@@ -24,8 +25,8 @@ func (m *CSRFMiddleware) Protect(next http.Handler) http.Handler {
 			return
 		}
 
-		origin := r.Header.Get("Origin")
-		referer := r.Header.Get("Referer")
+		origin := r.Header.Get(constants.OriginHeader)
+		referer := r.Header.Get(constants.RefererHeader)
 
 		if origin == "" && referer == "" {
 			m.log.Warn().Str("path", r.URL.Path).Str("method", r.Method).Msg("CSRF: no Origin or Referer")

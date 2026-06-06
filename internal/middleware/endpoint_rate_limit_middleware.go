@@ -92,7 +92,7 @@ func (m *EndpointRateLimitMiddleware) Start(next http.Handler) http.Handler {
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)
 				return
 			}
-			sub, ok := claims["sub"].(string)
+			sub, ok := claims[constants.JwtSubKey].(string)
 			if !ok || sub == "" {
 				m.log.Warn().Str("path", r.URL.Path).Msg("User identifier requested but sub claim not found")
 				http.Error(w, "Unauthorized", http.StatusUnauthorized)

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"uas/internal/constants"
 	"uas/pkg/logger"
 
 	"github.com/caarlos0/env/v6"
@@ -102,7 +103,7 @@ func init() {
 	// Load environment-specific config file
 	environment := os.Getenv("ENV")
 	if environment == "" {
-		environment = "development"
+		environment = constants.DevelopmentEnv
 	}
 
 	// Try to load environment-specific config first
@@ -236,7 +237,7 @@ func ReloadConfiguration() error {
 	// Reload environment variables
 	environment := os.Getenv("ENV")
 	if environment == "" {
-		environment = "development"
+		environment = constants.DevelopmentEnv
 	}
 
 	// Load environment-specific config

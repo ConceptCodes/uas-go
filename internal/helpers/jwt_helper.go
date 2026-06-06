@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 	"uas/config"
+	"uas/internal/constants"
 	"uas/internal/models"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -15,15 +16,15 @@ func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant strin
 	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
 	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,
-		"jti": uuid.New().String(),
-		"tid": tenant,
-		"iss": config.AppConfig.JwtIssuer,
-		"aud": config.AppConfig.JwtAudience,
-		"iat": now.Unix(),
-		"nbf": now.Unix(),
-		"exp": now.Add(time.Hour * time.Duration(config.AppConfig.AccessJwtExpire)).Unix(),
-		"amr": []string{"pwd"},
+		constants.JwtSubKey: user.ID,
+		constants.JwtJtiKey: uuid.New().String(),
+		constants.JwtTidKey: tenant,
+		"iss":               config.AppConfig.JwtIssuer,
+		"aud":               config.AppConfig.JwtAudience,
+		"iat":               now.Unix(),
+		"nbf":               now.Unix(),
+		"exp":               now.Add(time.Hour * time.Duration(config.AppConfig.AccessJwtExpire)).Unix(),
+		"amr":               []string{"pwd"},
 	})
 
 	token, err := t.SignedString([]byte(config.AppConfig.AccessJwtSecret))
@@ -40,7 +41,7 @@ func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, err
 		return nil, err
 	}
 	if h.tokenHelper != nil {
-		jti, ok := claims["jti"].(string)
+		jti, ok := claims[constants.JwtJtiKey].(string)
 		if ok && jti != "" {
 			blacklisted, _ := h.tokenHelper.IsTokenBlacklisted(jti)
 			if blacklisted {
@@ -55,15 +56,15 @@ func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant stri
 	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
 	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"sub": user.ID,
-		"jti": uuid.New().String(),
-		"tid": tenant,
-		"iss": config.AppConfig.JwtIssuer,
-		"aud": config.AppConfig.JwtAudience,
-		"iat": now.Unix(),
-		"nbf": now.Unix(),
-		"exp": now.Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
-		"amr": []string{"pwd"},
+		constants.JwtSubKey: user.ID,
+		constants.JwtJtiKey: uuid.New().String(),
+		constants.JwtTidKey: tenant,
+		"iss":               config.AppConfig.JwtIssuer,
+		"aud":               config.AppConfig.JwtAudience,
+		"iat":               now.Unix(),
+		"nbf":               now.Unix(),
+		"exp":               now.Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
+		"amr":               []string{"pwd"},
 	})
 
 	token, err := t.SignedString([]byte(config.AppConfig.RefreshJwtSecret))
@@ -80,7 +81,7 @@ func (h *AuthHelper) ParseRefreshJwtToken(tokenString string) (jwt.MapClaims, er
 		return nil, err
 	}
 	if h.tokenHelper != nil {
-		jti, ok := claims["jti"].(string)
+		jti, ok := claims[constants.JwtJtiKey].(string)
 		if ok && jti != "" {
 			blacklisted, _ := h.tokenHelper.IsTokenBlacklisted(jti)
 			if blacklisted {
