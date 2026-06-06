@@ -295,6 +295,93 @@ type ProfilingEndpoint struct {
 	Description string `json:"description"`
 }
 
+// MFA Response types
+type MfaEnrollResponse struct {
+	FactorID    string   `json:"factorId"`
+	FactorType  string   `json:"factorType"`
+	Secret      string   `json:"secret,omitempty"`
+	QRCodeURI   string   `json:"qrCodeUri,omitempty"`
+	BackupCodes []string `json:"backupCodes,omitempty"`
+}
+
+type MfaFactorResponse struct {
+	ID         string     `json:"id"`
+	FactorType string     `json:"factorType"`
+	Name       string     `json:"name"`
+	IsPrimary  bool       `json:"isPrimary"`
+	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
+	CreatedAt  time.Time  `json:"createdAt"`
+}
+
+type MfaChallengeResponse struct {
+	MFARequired bool   `json:"mfaRequired"`
+	MFAToken    string `json:"mfaToken,omitempty"`
+	Factors     []MfaFactorResponse `json:"factors,omitempty"`
+}
+
+type LoginMFARequiredResponse struct {
+	Message    string             `json:"message"`
+	MFARequired bool              `json:"mfaRequired"`
+	MFAToken   string             `json:"mfaToken"`
+	Factors    []MfaFactorResponse `json:"factors"`
+}
+
+// SSO Response types
+type IdentityProviderResponse struct {
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	ProviderType    string   `json:"providerType"`
+	ClientID        string   `json:"clientId"`
+	IssuerURL       string   `json:"issuerUrl,omitempty"`
+	AuthorizationURL string  `json:"authorizationUrl,omitempty"`
+	RedirectURLs    []string `json:"redirectUrls"`
+	Scopes          []string `json:"scopes"`
+	Enabled         bool     `json:"enabled"`
+	CreatedAt       time.Time `json:"createdAt"`
+}
+
+type SsoLoginResponse struct {
+	AuthURL string `json:"authUrl"`
+	State   string `json:"state"`
+}
+
+type UserIdentityResponse struct {
+	ID             string     `json:"id"`
+	ProviderID     string     `json:"providerId"`
+	ProviderName   string     `json:"providerName"`
+	ProviderType   string     `json:"providerType"`
+	ProviderUserID string     `json:"providerUserId"`
+	ProviderEmail  string     `json:"providerEmail,omitempty"`
+	LastLoginAt    *time.Time `json:"lastLoginAt,omitempty"`
+	CreatedAt      time.Time  `json:"createdAt"`
+}
+
+// Webhook Response types
+type WebhookEndpointResponse struct {
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	URL       string            `json:"url"`
+	Events    []WebhookEventType `json:"events"`
+	IsActive  bool              `json:"isActive"`
+	CreatedAt time.Time         `json:"createdAt"`
+}
+
+type WebhookDeliveryResponse struct {
+	ID           string               `json:"id"`
+	EndpointID   string               `json:"endpointId"`
+	Event        WebhookEventType     `json:"event"`
+	ResponseCode int                  `json:"responseCode"`
+	Status       WebhookDeliveryStatus `json:"status"`
+	Attempt      int                  `json:"attempt"`
+	MaxAttempts  int                  `json:"maxAttempts"`
+	NextRetryAt  *time.Time           `json:"nextRetryAt,omitempty"`
+	CreatedAt    time.Time            `json:"createdAt"`
+}
+
+type WebhookSecretResponse struct {
+	Secret string `json:"secret"`
+}
+
 // Helper functions for error handling
 func NewAppError(code, message string) *AppError {
 	return &AppError{

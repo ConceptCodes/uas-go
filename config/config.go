@@ -92,6 +92,21 @@ type Config struct {
 
 	// Audit retention cleanup schedule
 	AuditRetentionCleanupHours int `env:"AUDIT_RETENTION_CLEANUP_HOURS" envDefault:"24"`
+
+	// MFA Configuration
+	MfaIssuer             string `env:"MFA_ISSUER" envDefault:"UAS"`
+	MfaBackupCodeCount    int    `env:"MFA_BACKUP_CODE_COUNT" envDefault:"10"`
+	MfaChallengeExpireMin int    `env:"MFA_CHALLENGE_EXPIRE_MINUTES" envDefault:"5"`
+
+	// SSO Configuration
+	SsoStateExpireMin int `env:"SSO_STATE_EXPIRE_MINUTES" envDefault:"10"`
+
+	// Webhook Configuration
+	WebhookMaxRetries       int `env:"WEBHOOK_MAX_RETRIES" envDefault:"5"`
+	WebhookRetryBaseDelayMs int `env:"WEBHOOK_RETRY_BASE_DELAY_MS" envDefault:"1000"`
+	WebhookDeliveryRetentionDays int `env:"WEBHOOK_DELIVERY_RETENTION_DAYS" envDefault:"30"`
+	WebhookMaxPayloadSize   int `env:"WEBHOOK_MAX_PAYLOAD_SIZE" envDefault:"512000"`
+
 }
 
 var AppConfig = Config{}

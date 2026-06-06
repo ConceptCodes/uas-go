@@ -10,6 +10,7 @@ const (
 	Unauthorized        = "UAS-401"
 	Forbidden           = "UAS-403"
 	InternalServerError = "UAS-500"
+	MFARequired         = "UAS-428"
 
 	ApiPrefix                     = "/api/v1"
 	HealthCheckEndpoint           = ApiPrefix + "/health/alive"
@@ -32,6 +33,48 @@ const (
 	MagicLinkVerifyEndpoint       = ApiPrefix + "/users/magic-link/verify"
 	RefreshTokenEndpoint          = ApiPrefix + "/users/refresh-token"
 	LogoutEndpoint                = ApiPrefix + "/users/logout"
+
+	// MFA Endpoints
+	MfaEnrollEndpoint          = ApiPrefix + "/mfa/enroll"
+	MfaVerifyEnrollEndpoint    = ApiPrefix + "/mfa/verify-enroll"
+	MfaFactorsEndpoint         = ApiPrefix + "/mfa/factors"
+	MfaDisableEndpoint         = ApiPrefix + "/mfa/disable"
+	MfaChallengeVerifyEndpoint = ApiPrefix + "/mfa/challenge/verify"
+	MfaRecoverEndpoint         = ApiPrefix + "/mfa/recover"
+	MfaStatusEndpoint          = ApiPrefix + "/mfa/status"
+
+	// SSO Endpoints
+	SsoProvidersEndpoint    = ApiPrefix + "/sso/providers"
+	SsoProviderEndpoint     = ApiPrefix + "/sso/providers/{id}"
+	SsoLoginEndpoint        = ApiPrefix + "/sso/login"
+	SsoCallbackEndpoint     = ApiPrefix + "/sso/callback"
+	SsoIdentitiesEndpoint   = ApiPrefix + "/sso/identities"
+	SsoIdentityEndpoint     = ApiPrefix + "/sso/identities/{id}"
+
+	// Webhook Endpoints
+	WebhookEndpointsEndpoint    = ApiPrefix + "/webhooks/endpoints"
+	WebhookEndpointEndpoint     = ApiPrefix + "/webhooks/endpoints/{id}"
+	WebhookSecretEndpoint       = ApiPrefix + "/webhooks/endpoints/{id}/secret"
+	WebhookDeliveriesEndpoint   = ApiPrefix + "/webhooks/deliveries"
+	WebhookDeliveryEndpoint     = ApiPrefix + "/webhooks/deliveries/{id}"
+	WebhookRetryEndpoint        = ApiPrefix + "/webhooks/deliveries/{id}/retry"
+
+	// SAML Endpoints
+	SamlLoginEndpoint     = ApiPrefix + "/saml/{id}/login"
+	SamlACSEndpoint       = ApiPrefix + "/saml/{id}/acs"
+	SamlMetadataEndpoint  = ApiPrefix + "/saml/{id}/metadata"
+
+	// Admin API Endpoints
+	AdminUsersEndpoint          = ApiPrefix + "/admin/users"
+	AdminUserEndpoint           = ApiPrefix + "/admin/users/{id}"
+	AdminUserLockEndpoint       = ApiPrefix + "/admin/users/{id}/lock"
+	AdminUserSessionsEndpoint   = ApiPrefix + "/admin/users/{id}/sessions"
+	AdminUserMfaEndpoint        = ApiPrefix + "/admin/users/{id}/mfa"
+	AdminTenantsEndpoint        = ApiPrefix + "/admin/tenants"
+	AdminTenantEndpoint         = ApiPrefix + "/admin/tenants/{id}"
+	AdminTenantSuspendEndpoint  = ApiPrefix + "/admin/tenants/{id}/suspend"
+
+
 
 	JwtSubKey = "sub"
 	JwtJtiKey = "jti"
