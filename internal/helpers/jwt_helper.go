@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant string) (string, error) {
+func (h *AuthHelper) GenerateAccessJwtTokenWithAMR(user *models.UserModel, tenant string, amr []string) (string, error) {
 	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
 	now := time.Now()
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -24,7 +24,7 @@ func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant strin
 		"iat":               now.Unix(),
 		"nbf":               now.Unix(),
 		"exp":               now.Add(time.Hour * time.Duration(config.AppConfig.AccessJwtExpire)).Unix(),
-		"amr":               []string{"pwd"},
+		"amr":               amr,
 	})
 
 	token, err := t.SignedString([]byte(config.AppConfig.AccessJwtSecret))
@@ -33,6 +33,37 @@ func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant strin
 	}
 
 	return token, nil
+}
+
+func (h *AuthHelper) GenerateAccessJwtToken(user *models.UserModel, tenant string) (string, error) {
+	return h.GenerateAccessJwtTokenWithAMR(user, tenant, []string{"pwd"})
+}
+
+func (h *AuthHelper) GenerateRefreshJwtTokenWithAMR(user *models.UserModel, tenant string, amr []string) (string, error) {
+	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
+	now := time.Now()
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		constants.JwtSubKey: user.ID,
+		constants.JwtJtiKey: uuid.New().String(),
+		constants.JwtTidKey: tenant,
+		"iss":               config.AppConfig.JwtIssuer,
+		"aud":               config.AppConfig.JwtAudience,
+		"iat":               now.Unix(),
+		"nbf":               now.Unix(),
+		"exp":               now.Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
+		"amr":               amr,
+	})
+
+	token, err := t.SignedString([]byte(config.AppConfig.RefreshJwtSecret))
+	if err != nil {
+		return "", errors.New("error generating JWT Refresh token")
+	}
+
+	return token, nil
+}
+
+func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant string) (string, error) {
+	return h.GenerateRefreshJwtTokenWithAMR(user, tenant, []string{"pwd"})
 }
 
 func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, error) {
@@ -50,29 +81,6 @@ func (h *AuthHelper) ParseAccessJwtToken(tokenString string) (jwt.MapClaims, err
 		}
 	}
 	return claims, nil
-}
-
-func (h *AuthHelper) GenerateRefreshJwtToken(user *models.UserModel, tenant string) (string, error) {
-	h.log.Debug().Msgf("Generating JWT token for user: %s", user.ID)
-	now := time.Now()
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		constants.JwtSubKey: user.ID,
-		constants.JwtJtiKey: uuid.New().String(),
-		constants.JwtTidKey: tenant,
-		"iss":               config.AppConfig.JwtIssuer,
-		"aud":               config.AppConfig.JwtAudience,
-		"iat":               now.Unix(),
-		"nbf":               now.Unix(),
-		"exp":               now.Add(time.Hour * time.Duration(config.AppConfig.RefreshJwtExpire)).Unix(),
-		"amr":               []string{"pwd"},
-	})
-
-	token, err := t.SignedString([]byte(config.AppConfig.RefreshJwtSecret))
-	if err != nil {
-		return "", errors.New("error generating JWT Refresh token")
-	}
-
-	return token, nil
 }
 
 func (h *AuthHelper) ParseRefreshJwtToken(tokenString string) (jwt.MapClaims, error) {

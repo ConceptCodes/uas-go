@@ -20,6 +20,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func GenerateRandomString(length int) (string, error) {
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b)[:length], nil
+}
+
 type AuthHelper struct {
 	log            *zerolog.Logger
 	departmentRepo repository.DepartmentRepository
