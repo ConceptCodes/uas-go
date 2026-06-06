@@ -41,10 +41,36 @@ build:
 	@go build -o bin/uas cmd/api/main.go
 
 test:
-	@go test ./...
+	@go test ./... -count=1
+
+test-race:
+	@go test ./... -race -count=1
+
+test-cover:
+	@go test ./... -coverprofile=coverage.out -count=1
+	@go tool cover -func=coverage.out | tail -1
+
+test-cover-html:
+	@go test ./... -coverprofile=coverage.out -count=1
+	@go tool cover -html=coverage.out -o coverage.html
+
+test-verbose:
+	@go test ./... -v -count=1
+
+test-short:
+	@go test ./... -short -count=1
 
 test-smoke-auth:
 	@bash scripts/auth_smoke.sh
+
+vet:
+	@go vet ./...
+
+lint:
+	@golangci-lint run
+
+fmt:
+	@go fmt ./...
 
 backup-db:
 	@bash scripts/db_backup.sh
