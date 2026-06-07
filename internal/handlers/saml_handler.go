@@ -117,51 +117,82 @@ type tlsCertPair struct {
 }
 
 func (h *SamlHandler) getTLSCert(provider *models.IdentityProvider) (*tlsCertPair, error) {
-	certPEM := provider.ClientSecret.String()
-	if certPEM == "" {
-		return nil, errors.New("SAML provider requires a certificate in client_secret")
+	combinedPEM := provider.ClientSecret.String()
+	if combinedPEM == "" {
+		return nil, errors.New("SAML provider requires a certificate and private key in client_secret")
 	}
 
-	block, _ := pem.Decode([]byte(certPEM))
-	if block == nil {
-		return nil, errors.New("failed to decode SAML certificate PEM")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse SAML certificate: %w", err)
-	}
-
-	privPEM := provider.ClientSecret.String()
-	privBlock, _ := pem.Decode([]byte(privPEM))
-	if privBlock == nil || privBlock.Type != "RSA PRIVATE KEY" {
-		return nil, errors.New("failed to decode SAML private key PEM")
-	}
-
-	key, err := x509.ParsePKCS1PrivateKey(privBlock.Bytes)
-	if err != nil {
-		key2, err2 := x509.ParsePKCS8PrivateKey(privBlock.Bytes)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to parse SAML private key: %w", err2)
+	remaining := []byte(combinedPEM)
+	var cert *x509.Certificate
+	for {
+		var block *pem.Block
+		block, remaining = pem.Decode(remaining)
+		if block == nil {
+			break
 		}
-		rsaKey, ok := key2.(*rsa.PrivateKey)
-		if !ok {
-			return nil, errors.New("SAML private key is not RSA")
+		if block.Type == "CERTIFICATE" && cert == nil {
+			c, err := x509.ParseCertificate(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse SAML certificate: %w", err)
+			}
+			cert = c
 		}
-		return &tlsCertPair{PrivateKey: rsaKey, Certificate: cert}, nil
 	}
 
-	return &tlsCertPair{PrivateKey: key, Certificate: cert}, nil
+	if cert == nil {
+		return nil, errors.New("SAML provider PEM is missing a CERTIFICATE block")
+	}
+
+	keyPEM := []byte(combinedPEM)
+	var privKey *rsa.PrivateKey
+	for {
+		var block *pem.Block
+		block, keyPEM = pem.Decode(keyPEM)
+		if block == nil {
+			break
+		}
+		if block.Type == "RSA PRIVATE KEY" {
+			k, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse RSA private key: %w", err)
+			}
+			privKey = k
+			break
+		}
+		if block.Type == "PRIVATE KEY" {
+			k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse PKCS8 private key: %w", err)
+			}
+			rk, ok := k.(*rsa.PrivateKey)
+			if !ok {
+				return nil, errors.New("SAML private key is not RSA")
+			}
+			privKey = rk
+			break
+		}
+	}
+
+	if privKey == nil {
+		return nil, errors.New("SAML provider PEM is missing an RSA private key")
+	}
+
+	return &tlsCertPair{PrivateKey: privKey, Certificate: cert}, nil
 }
 
 func (h *SamlHandler) fetchIDPMetadata(metadataURL string) (*saml.EntityDescriptor, error) {
-	resp, err := http.Get(metadataURL)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(metadataURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch IDP metadata: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("IDP metadata fetch returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read IDP metadata: %w", err)
 	}
@@ -219,15 +250,25 @@ func (h *SamlHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authnReq, err := sp.MakeAuthenticationRequest(sp.GetSSOBindingLocation(saml.HTTPRedirectBinding), saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Failed to build authentication request", constants.InternalServerError, err)
+		return
+	}
+
 	relayState := uuid.New().String()
 	relayData := map[string]string{
-		"provider_id":   providerID,
-		"department_id": departmentID,
+		"provider_id":     providerID,
+		"department_id":   departmentID,
+		"saml_request_id": string(authnReq.ID),
 	}
 	relayDataJSON, _ := json.Marshal(relayData)
-	h.mfaHelper.StoreSSOState(relayState, map[string]string{"data": string(relayDataJSON)}, 10*time.Minute)
+	if err := h.mfaHelper.StoreSSOState(relayState, map[string]string{"data": string(relayDataJSON)}, 10*time.Minute); err != nil {
+		h.responseHelper.SendErrorResponse(w, "Failed to store SAML state", constants.InternalServerError, err)
+		return
+	}
 
-	redirectURL, err := sp.MakeRedirectAuthenticationRequest(relayState)
+	redirectURL, err := authnReq.Redirect(relayState, sp)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Failed to build authentication request", constants.InternalServerError, err)
 		return
@@ -246,18 +287,36 @@ func (h *SamlHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 func (h *SamlHandler) AssertionConsumerServiceHandler(w http.ResponseWriter, r *http.Request) {
 	providerID := mux.Vars(r)["id"]
 
-	providers, err := h.idPRepo.FindByDepartment("")
-	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "No providers found", constants.NotFound, err)
-		return
+	relayState := r.FormValue("RelayState")
+	if relayState == "" {
+		relayState = r.URL.Query().Get("RelayState")
 	}
 
 	var provider *models.IdentityProvider
-	for i, p := range providers {
-		if p.ID == providerID {
-			provider = &providers[i]
-			break
+	var departmentID string
+	var samlRequestID string
+
+	if relayState != "" {
+		stateMap, err := h.mfaHelper.ValidateAndConsumeSSOState(relayState)
+		if err == nil && stateMap != nil {
+			var relayData map[string]string
+			if dataStr, ok := stateMap["data"]; ok {
+				_ = json.Unmarshal([]byte(dataStr), &relayData)
+			}
+			if id, ok := relayData["provider_id"]; ok && id == providerID {
+				departmentID = relayData["department_id"]
+				samlRequestID = relayData["saml_request_id"]
+			}
 		}
+	}
+
+	if departmentID == "" {
+		departmentID = helpers.GetDepartmentId(r)
+	}
+
+	var err error
+	if departmentID != "" {
+		provider, err = h.idPRepo.FindByID(providerID, departmentID)
 	}
 
 	if provider == nil {
@@ -272,6 +331,9 @@ func (h *SamlHandler) AssertionConsumerServiceHandler(w http.ResponseWriter, r *
 	}
 
 	var possibleRequestIDs []string
+	if samlRequestID != "" {
+		possibleRequestIDs = append(possibleRequestIDs, samlRequestID)
+	}
 	assertion, err := sp.ParseResponse(r, possibleRequestIDs)
 	if err != nil {
 		if relayStateErr := new(saml.InvalidResponseError); errors.As(err, &relayStateErr) {
@@ -299,8 +361,12 @@ func (h *SamlHandler) AssertionConsumerServiceHandler(w http.ResponseWriter, r *
 		email = assertion.Subject.NameID.Value
 	}
 
+	if assertion.Subject == nil || assertion.Subject.NameID == nil || assertion.Subject.NameID.Value == "" {
+		h.responseHelper.SendErrorResponse(w, "SAML assertion missing subject", constants.BadRequest, nil)
+		return
+	}
 	providerUserID := assertion.Subject.NameID.Value
-	departmentID := provider.DepartmentID
+	departmentID = provider.DepartmentID
 
 	existingIdentity, err := h.identityRepo.FindByProvider(providerID, providerUserID, departmentID)
 	if err == nil && existingIdentity != nil {
@@ -314,28 +380,23 @@ func (h *SamlHandler) AssertionConsumerServiceHandler(w http.ResponseWriter, r *
 		return
 	}
 
-	var user *models.UserModel
-	if email != "" {
-		user, _ = h.userRepo.FindByEmail(email, departmentID)
+	userID := uuid.New().String()
+	user := &models.UserModel{
+		ID:            userID,
+		Email:         email,
+		EmailVerified: false,
 	}
-
-	if user == nil {
-		userID := uuid.New().String()
-		user = &models.UserModel{
-			ID:            userID,
-			Email:         email,
-			EmailVerified: email != "",
-		}
-		if err := h.userRepo.Create(user); err != nil {
-			h.responseHelper.SendErrorResponse(w, "Failed to create user", constants.InternalServerError, err)
-			return
-		}
-		userRole := models.DepartmentRoles{
-			ID:     departmentID,
-			Role:   models.User,
-			UserID: userID,
-		}
-		h.deptRoleRepo.Create(&userRole)
+	if err := h.userRepo.Create(user); err != nil {
+		h.responseHelper.SendErrorResponse(w, "Failed to create user", constants.InternalServerError, err)
+		return
+	}
+	userRole := models.DepartmentRoles{
+		ID:     departmentID,
+		Role:   models.User,
+		UserID: userID,
+	}
+	if err := h.deptRoleRepo.Create(&userRole); err != nil {
+		h.log.Error().Err(err).Str("user_id", userID).Str("department_id", departmentID).Msg("Failed to assign user role")
 	}
 
 	identity := &models.UserIdentity{
@@ -345,7 +406,9 @@ func (h *SamlHandler) AssertionConsumerServiceHandler(w http.ResponseWriter, r *
 		ProviderUserID: providerUserID,
 		ProviderEmail:  email,
 	}
-	h.identityRepo.Create(identity)
+	if err := h.identityRepo.Create(identity); err != nil {
+		h.log.Error().Err(err).Str("user_id", user.ID).Msg("Failed to link SAML identity")
+	}
 
 	h.issueTokens(w, r, user, departmentID)
 }
