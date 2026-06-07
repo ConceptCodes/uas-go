@@ -29,30 +29,25 @@ CREATE TABLE IF NOT EXISTS user_models (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Best-effort migration from legacy users table to current user_models table.
-INSERT INTO user_models (
-    id,
-    name,
-    email,
-    password,
-    phone_number,
-    email_verified,
-    created_at,
-    updated_at
-)
-SELECT
-    u.uuid,
-    TRIM(CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, ''))),
-    u.email,
-    u.password_hash,
-    u.phone_number,
-    u.email_verified,
-    u.created_at,
-    u.updated_at
-FROM users u
-WHERE u.uuid IS NOT NULL
-  AND NOT EXISTS (
-      SELECT 1 FROM user_models um WHERE um.id = u.uuid
-  );
+-- The migration tool's `users` table may or may not exist on a fresh deployment,
+-- so we use a prepared statement guarded by an information_schema check.
+SET @has_users = (
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'users'
+);
+SET @mig_sql = IF(@has_users > 0,
+    'INSERT INTO user_models (id, name, email, password, phone_number, email_verified, created_at, updated_at)
+     SELECT u.uuid,
+            TRIM(CONCAT(COALESCE(u.first_name, ''''), '' '', COALESCE(u.last_name, ''''))),
+            u.email, u.password_hash, u.phone_number, u.email_verified, u.created_at, u.updated_at
+     FROM users u
+     WHERE u.uuid IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM user_models um WHERE um.id = u.uuid)',
+    'SELECT ''legacy users table not present; skipping'' AS msg'
+);
+PREPARE stmt FROM @mig_sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 CREATE TABLE IF NOT EXISTS department_roles (
     id VARCHAR(36) NOT NULL,
