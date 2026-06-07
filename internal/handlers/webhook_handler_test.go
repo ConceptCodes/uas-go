@@ -401,17 +401,11 @@ func TestWebhookHandler_GetDeliveryHandler_NotFound(t *testing.T) {
 func TestWebhookHandler_RetryDeliveryHandler_HappyPath(t *testing.T) {
 	d := setupWebhookHandler(t)
 
-	d.endpointRepo.On("FindByDepartment", "dept-1").Return([]models.WebhookEndpoint{
-		{ID: "ep-1", IsActive: true},
+	d.deliveryRepo.On("FindByDepartment", "dept-1", 1, 0).Return([]models.WebhookDelivery{
+		{ID: "d-1", EndpointID: "ep-1", Status: models.WebhookDeliveryFailed, DepartmentID: "dept-1"},
 	}, nil)
 
-	d.deliveryRepo.On("FindByID", "d-1", "ep-1").Return(&models.WebhookDelivery{
-		ID:         "d-1",
-		EndpointID: "ep-1",
-		Status:     models.WebhookDeliveryFailed,
-	}, nil)
-
-	d.endpointRepo.On("FindByID", "ep-1", mock.Anything).Return(&models.WebhookEndpoint{
+	d.endpointRepo.On("FindByID", "ep-1", "dept-1").Return(&models.WebhookEndpoint{
 		ID:       "ep-1",
 		URL:      "https://example.com/hook",
 		IsActive: true,
@@ -432,7 +426,7 @@ func TestWebhookHandler_RetryDeliveryHandler_HappyPath(t *testing.T) {
 func TestWebhookHandler_RetryDeliveryHandler_NoEndpoints(t *testing.T) {
 	d := setupWebhookHandler(t)
 
-	d.endpointRepo.On("FindByDepartment", "dept-1").Return(nil, assert.AnError)
+	d.deliveryRepo.On("FindByDepartment", "dept-1", 1, 0).Return([]models.WebhookDelivery{}, nil)
 
 	req := httptest.NewRequest(http.MethodPost, "/webhooks/deliveries/d-1/retry", nil)
 	req = mux.SetURLVars(req, map[string]string{"id": "d-1"})

@@ -53,6 +53,11 @@ func (h *WebhookHandler) CreateEndpointHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if err := helpers.ValidateWebhookURL(data.URL); err != nil {
+		h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+		return
+	}
+
 	secret, err := h.webhookHelper.GenerateSecret()
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Failed to generate webhook secret", constants.InternalServerError, err)
@@ -131,6 +136,10 @@ func (h *WebhookHandler) UpdateEndpointHandler(w http.ResponseWriter, r *http.Re
 		endpoint.Name = *data.Name
 	}
 	if data.URL != nil {
+		if err := helpers.ValidateWebhookURL(*data.URL); err != nil {
+			h.responseHelper.SendErrorResponse(w, err.Error(), constants.BadRequest, err)
+			return
+		}
 		endpoint.URL = *data.URL
 	}
 	if data.Events != nil {
@@ -221,21 +230,33 @@ func (h *WebhookHandler) GetDeliveryHandler(w http.ResponseWriter, r *http.Reque
 
 func (h *WebhookHandler) RetryDeliveryHandler(w http.ResponseWriter, r *http.Request) {
 	departmentID := helpers.GetDepartmentId(r)
-	id := mux.Vars(r)["id"]
+	deliveryID := mux.Vars(r)["id"]
 
-	endpoints, err := h.endpointRepo.FindByDepartment(departmentID)
+	deliveries, err := h.deliveryRepo.FindByDepartment(departmentID, 1, 0)
 	if err != nil {
-		h.responseHelper.SendErrorResponse(w, "No endpoints found", constants.NotFound, err)
+		h.responseHelper.SendErrorResponse(w, "Failed to load deliveries", constants.InternalServerError, err)
 		return
 	}
 
-	var endpointID string
-	for _, e := range endpoints {
-		endpointID = e.ID
-		break
+	var matched *models.WebhookDelivery
+	for i := range deliveries {
+		if deliveries[i].ID == deliveryID {
+			matched = &deliveries[i]
+			break
+		}
+	}
+	if matched == nil {
+		h.responseHelper.SendErrorResponse(w, "Delivery not found", constants.NotFound, nil)
+		return
 	}
 
-	if err := h.webhookHelper.RetryDelivery(id, endpointID); err != nil {
+	endpoint, err := h.endpointRepo.FindByID(matched.EndpointID, departmentID)
+	if err != nil {
+		h.responseHelper.SendErrorResponse(w, "Webhook endpoint not found", constants.NotFound, err)
+		return
+	}
+
+	if err := h.webhookHelper.RetryDelivery(matched, endpoint); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Failed to retry delivery", constants.InternalServerError, err)
 		return
 	}
