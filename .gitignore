@@ -5,4 +5,5 @@ config/.env.staging
 notes.txt
 uas
 
-.agents/*
+.agents/*coverage.out
+coverage.out
