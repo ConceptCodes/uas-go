@@ -754,9 +754,10 @@ func (h *UserHandler) RefreshAccessTokenHandler(w http.ResponseWriter, r *http.R
 
 	jti, _ := claims[constants.JwtJtiKey].(string)
 	if jti != "" {
-		exp := time.Unix(int64(claims["exp"].(float64)), 0)
-		if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
-			h.log.Warn().Err(err).Msg("Failed to blacklist old refresh token JTI")
+		if expClaim, err := claims.GetExpirationTime(); err == nil && expClaim != nil {
+			if err := h.tokenHelper.BlacklistToken(jti, expClaim.Time); err != nil {
+				h.log.Warn().Err(err).Msg("Failed to blacklist old refresh token JTI")
+			}
 		}
 	}
 
@@ -894,6 +895,12 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if err := h.authRepo.DeleteByTokenAndType(data.Token, models.MagicLink, departmentId); err != nil {
+		h.log.Error().Err(err).Msg("Failed to consume magic link token")
+		h.responseHelper.SendErrorResponse(w, "Invalid or expired magic link", constants.BadRequest, err)
+		return
+	}
+
 	user, err := h.userRepo.FindById(record.UserID, departmentId)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Invalid magic link", constants.BadRequest, nil)
@@ -910,11 +917,6 @@ func (h *UserHandler) VerifyMagicLinkEmail(w http.ResponseWriter, r *http.Reques
 	if err := h.createSession(r, user, departmentId, refreshToken); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Error creating session", constants.InternalServerError, err)
 		return
-	}
-
-	err = h.authRepo.DeleteByTokenAndType(data.Token, models.MagicLink, departmentId)
-	if err != nil {
-		h.log.Warn().Err(err).Msg("Failed to delete magic link token after verification")
 	}
 
 	h.authHelper.GenerateAccessCookie(accessToken, w)
@@ -943,9 +945,10 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 				if err == nil {
 					tid, _ := claims[constants.JwtTidKey].(string)
 					if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
-						exp := time.Unix(int64(claims["exp"].(float64)), 0)
-						if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
-							h.log.Warn().Err(err).Msg("Failed to blacklist access token JTI on logout")
+						if expClaim, err := claims.GetExpirationTime(); err == nil && expClaim != nil {
+							if err := h.tokenHelper.BlacklistToken(jti, expClaim.Time); err != nil {
+								h.log.Warn().Err(err).Msg("Failed to blacklist access token JTI on logout")
+							}
 						}
 					}
 					if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {
@@ -959,9 +962,10 @@ func (h *UserHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			tid, _ := claims[constants.JwtTidKey].(string)
 			if jti, ok := claims[constants.JwtJtiKey].(string); ok && jti != "" {
-				exp := time.Unix(int64(claims["exp"].(float64)), 0)
-				if err := h.tokenHelper.BlacklistToken(jti, exp); err != nil {
-					h.log.Warn().Err(err).Msg("Failed to blacklist refresh token JTI on logout")
+				if expClaim, err := claims.GetExpirationTime(); err == nil && expClaim != nil {
+					if err := h.tokenHelper.BlacklistToken(jti, expClaim.Time); err != nil {
+						h.log.Warn().Err(err).Msg("Failed to blacklist refresh token JTI on logout")
+					}
 				}
 			}
 			if sub, ok := claims[constants.JwtSubKey].(string); ok && sub != "" {

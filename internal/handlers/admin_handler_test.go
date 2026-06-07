@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"uas/config"
@@ -17,7 +18,7 @@ import (
 	"uas/internal/models"
 )
 
-func setupAdminHandler(t *testing.T) (*AdminHandler, *MockUserRepository, *MockSessionRepository) {
+func setupAdminHandler(t *testing.T) (*AdminHandler, *MockUserRepository, *MockSessionRepository, *MockPasswordHistoryRepository) {
 	t.Helper()
 	saveAppConfig(t)
 
@@ -30,6 +31,7 @@ func setupAdminHandler(t *testing.T) (*AdminHandler, *MockUserRepository, *MockS
 	log := newTestLogger()
 	userRepo := new(MockUserRepository)
 	sessionRepo := new(MockSessionRepository)
+	pwHistRepo := new(MockPasswordHistoryRepository)
 
 	responseHelper := newTestResponseHelper(&log)
 	validatorHelper := newTestValidatorHelper(&log, responseHelper)
@@ -40,7 +42,7 @@ func setupAdminHandler(t *testing.T) (*AdminHandler, *MockUserRepository, *MockS
 		userRepo,
 		nil,
 		sessionRepo,
-		nil,
+		pwHistRepo,
 		passwordHelper,
 		authHelper,
 		responseHelper,
@@ -48,7 +50,7 @@ func setupAdminHandler(t *testing.T) (*AdminHandler, *MockUserRepository, *MockS
 		&log,
 	)
 
-	return handler, userRepo, sessionRepo
+	return handler, userRepo, sessionRepo, pwHistRepo
 }
 
 func withDepartment(r *http.Request, deptID string) *http.Request {
@@ -56,7 +58,7 @@ func withDepartment(r *http.Request, deptID string) *http.Request {
 }
 
 func TestAdminHandler_ListUsersHandler(t *testing.T) {
-	handler, _, _ := setupAdminHandler(t)
+	handler, _, _, _ := setupAdminHandler(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/admin/users", nil)
 	req = withDepartment(req, "dept-1")
@@ -73,7 +75,7 @@ func TestAdminHandler_ListUsersHandler(t *testing.T) {
 }
 
 func TestAdminHandler_GetUserHandler_Found(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(&models.UserModel{
 		ID:            "user-1",
@@ -107,7 +109,7 @@ func TestAdminHandler_GetUserHandler_Found(t *testing.T) {
 }
 
 func TestAdminHandler_GetUserHandler_NotFound(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(nil, assert.AnError)
 
@@ -128,7 +130,7 @@ func TestAdminHandler_GetUserHandler_NotFound(t *testing.T) {
 }
 
 func TestAdminHandler_UpdateUserHandler_HappyPath(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	existing := &models.UserModel{
 		ID:            "user-1",
@@ -165,7 +167,7 @@ func TestAdminHandler_UpdateUserHandler_HappyPath(t *testing.T) {
 }
 
 func TestAdminHandler_UpdateUserHandler_DecodeError(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(&models.UserModel{
 		ID:    "user-1",
@@ -185,7 +187,7 @@ func TestAdminHandler_UpdateUserHandler_DecodeError(t *testing.T) {
 }
 
 func TestAdminHandler_UpdateUserHandler_UserNotFound(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(nil, assert.AnError)
 
@@ -204,7 +206,7 @@ func TestAdminHandler_UpdateUserHandler_UserNotFound(t *testing.T) {
 }
 
 func TestAdminHandler_UpdateUserHandler_SaveError(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	existing := &models.UserModel{
 		ID:    "user-1",
@@ -230,7 +232,7 @@ func TestAdminHandler_UpdateUserHandler_SaveError(t *testing.T) {
 }
 
 func TestAdminHandler_ResetUserPasswordHandler_HappyPath(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, sessionRepo, pwHistRepo := setupAdminHandler(t)
 
 	existing := &models.UserModel{
 		ID:       "user-1",
@@ -241,6 +243,9 @@ func TestAdminHandler_ResetUserPasswordHandler_HappyPath(t *testing.T) {
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(existing, nil)
 	userRepo.On("Save", existing, "dept-1").Return(nil)
+	pwHistRepo.On("GetRecentPasswords", "user-1", "dept-1", 5).Return([]models.PasswordHistory{}, nil)
+	pwHistRepo.On("Create", mock.AnythingOfType("*models.PasswordHistory")).Return(nil)
+	sessionRepo.On("RevokeAllUserSessions", "user-1", "dept-1").Return(nil)
 
 	body := map[string]string{"newPassword": "StrongPass1!"}
 	b, _ := json.Marshal(body)
@@ -263,7 +268,7 @@ func TestAdminHandler_ResetUserPasswordHandler_HappyPath(t *testing.T) {
 }
 
 func TestAdminHandler_ResetUserPasswordHandler_WeakPassword(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(&models.UserModel{
 		ID:    "user-1",
@@ -286,7 +291,7 @@ func TestAdminHandler_ResetUserPasswordHandler_WeakPassword(t *testing.T) {
 }
 
 func TestAdminHandler_ResetUserPasswordHandler_CommonPassword(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	config.AppConfig.PasswordMinLength = 1
 	config.AppConfig.PasswordRequireUppercase = false
@@ -315,7 +320,7 @@ func TestAdminHandler_ResetUserPasswordHandler_CommonPassword(t *testing.T) {
 }
 
 func TestAdminHandler_ResetUserPasswordHandler_UserNotFound(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(nil, assert.AnError)
 
@@ -334,7 +339,7 @@ func TestAdminHandler_ResetUserPasswordHandler_UserNotFound(t *testing.T) {
 }
 
 func TestAdminHandler_ResetUserPasswordHandler_ValidationError(t *testing.T) {
-	handler, userRepo, _ := setupAdminHandler(t)
+	handler, userRepo, _, _ := setupAdminHandler(t)
 
 	userRepo.On("FindById", "user-1", "dept-1").Return(&models.UserModel{
 		ID:    "user-1",
@@ -354,7 +359,7 @@ func TestAdminHandler_ResetUserPasswordHandler_ValidationError(t *testing.T) {
 }
 
 func TestAdminHandler_RevokeUserSessionsHandler_HappyPath(t *testing.T) {
-	handler, _, sessionRepo := setupAdminHandler(t)
+	handler, _, sessionRepo, _ := setupAdminHandler(t)
 
 	sessionRepo.On("RevokeAllUserSessions", "user-1", "dept-1").Return(nil)
 
@@ -374,7 +379,7 @@ func TestAdminHandler_RevokeUserSessionsHandler_HappyPath(t *testing.T) {
 }
 
 func TestAdminHandler_RevokeUserSessionsHandler_Error(t *testing.T) {
-	handler, _, sessionRepo := setupAdminHandler(t)
+	handler, _, sessionRepo, _ := setupAdminHandler(t)
 
 	sessionRepo.On("RevokeAllUserSessions", "user-1", "dept-1").Return(assert.AnError)
 

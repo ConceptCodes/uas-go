@@ -139,6 +139,11 @@ func (h *AdminHandler) ResetUserPasswordHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if user.Password != "" && h.authHelper.CheckPasswordHash(data.NewPassword, user.Password) {
+		h.responseHelper.SendErrorResponse(w, "New password cannot match the previous password", constants.BadRequest, nil)
+		return
+	}
+
 	hash, err := h.authHelper.HashPassword(data.NewPassword)
 	if err != nil {
 		h.responseHelper.SendErrorResponse(w, "Failed to hash password", constants.InternalServerError, err)
@@ -149,6 +154,27 @@ func (h *AdminHandler) ResetUserPasswordHandler(w http.ResponseWriter, r *http.R
 	if err := h.userRepo.Save(user, departmentID); err != nil {
 		h.responseHelper.SendErrorResponse(w, "Failed to update password", constants.InternalServerError, err)
 		return
+	}
+
+	histories, _ := h.passwordHistRepo.GetRecentPasswords(userID, departmentID, 5)
+	for _, ph := range histories {
+		if h.authHelper.CheckPasswordHash(data.NewPassword, ph.PasswordHash) {
+			h.responseHelper.SendErrorResponse(w, "Password has been used recently", constants.BadRequest, nil)
+			return
+		}
+	}
+
+	passwordHistory := &models.PasswordHistory{
+		UserID:       userID,
+		PasswordHash: hash,
+		DepartmentID: departmentID,
+	}
+	if err := h.passwordHistRepo.Create(passwordHistory); err != nil {
+		h.log.Warn().Err(err).Msg("Failed to record password history")
+	}
+
+	if err := h.sessionRepo.RevokeAllUserSessions(userID, departmentID); err != nil {
+		h.log.Warn().Err(err).Msg("Failed to revoke sessions after admin password reset")
 	}
 
 	h.responseHelper.SendSuccessResponse(w, "Password reset successfully", nil)
