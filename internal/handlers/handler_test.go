@@ -392,3 +392,102 @@ func (m *MockWebhookDeliveryRepository) DeleteOlderThan(duration time.Duration) 
 	}
 	return args.Get(0).(int64), args.Error(1)
 }
+
+type MockIdentityProviderRepository struct {
+	mock.Mock
+}
+
+func (m *MockIdentityProviderRepository) Create(provider *models.IdentityProvider) error {
+	args := m.Called(provider)
+	return args.Error(0)
+}
+
+func (m *MockIdentityProviderRepository) FindByID(id, departmentID string) (*models.IdentityProvider, error) {
+	args := m.Called(id, departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.IdentityProvider), args.Error(1)
+}
+
+func (m *MockIdentityProviderRepository) FindByDepartment(departmentID string) ([]models.IdentityProvider, error) {
+	args := m.Called(departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.IdentityProvider), args.Error(1)
+}
+
+func (m *MockIdentityProviderRepository) FindByDepartmentAndType(departmentID string, providerType models.IdentityProviderType) ([]models.IdentityProvider, error) {
+	args := m.Called(departmentID, providerType)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.IdentityProvider), args.Error(1)
+}
+
+func (m *MockIdentityProviderRepository) Update(provider *models.IdentityProvider) error {
+	args := m.Called(provider)
+	return args.Error(0)
+}
+
+func (m *MockIdentityProviderRepository) Delete(id, departmentID string) error {
+	args := m.Called(id, departmentID)
+	return args.Error(0)
+}
+
+type MockUserIdentityRepository struct {
+	mock.Mock
+}
+
+func (m *MockUserIdentityRepository) Create(identity *models.UserIdentity) error {
+	args := m.Called(identity)
+	return args.Error(0)
+}
+
+func (m *MockUserIdentityRepository) FindByID(id, departmentID string) (*models.UserIdentity, error) {
+	args := m.Called(id, departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.UserIdentity), args.Error(1)
+}
+
+func (m *MockUserIdentityRepository) FindByUserID(userID, departmentID string) ([]models.UserIdentity, error) {
+	args := m.Called(userID, departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.UserIdentity), args.Error(1)
+}
+
+func (m *MockUserIdentityRepository) FindByProvider(providerID, providerUserID, departmentID string) (*models.UserIdentity, error) {
+	args := m.Called(providerID, providerUserID, departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.UserIdentity), args.Error(1)
+}
+
+func (m *MockUserIdentityRepository) FindByProviderEmail(providerEmail, departmentID string) (*models.UserIdentity, error) {
+	args := m.Called(providerEmail, departmentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.UserIdentity), args.Error(1)
+}
+
+func (m *MockUserIdentityRepository) Delete(id, departmentID string) error {
+	args := m.Called(id, departmentID)
+	return args.Error(0)
+}
+
+func (m *MockUserIdentityRepository) DeleteByUserID(userID, departmentID string) error {
+	args := m.Called(userID, departmentID)
+	return args.Error(0)
+}
+
+func (m *MockUserIdentityRepository) UpdateLastLogin(id, departmentID string) error {
+	args := m.Called(id, departmentID)
+	return args.Error(0)
+}
