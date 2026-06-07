@@ -491,3 +491,63 @@ func (m *MockUserIdentityRepository) UpdateLastLogin(id, departmentID string) er
 	args := m.Called(id, departmentID)
 	return args.Error(0)
 }
+
+type MockAuditLogRepository struct {
+	mock.Mock
+}
+
+func (m *MockAuditLogRepository) Create(auditLog *models.AuditLog) error {
+	args := m.Called(auditLog)
+	return args.Error(0)
+}
+
+func (m *MockAuditLogRepository) FindByID(id string) (*models.AuditLog, error) {
+	args := m.Called(id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) FindMany(filter *models.AuditLogFilter) (*models.AuditLogQuery, error) {
+	args := m.Called(filter)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.AuditLogQuery), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) FindByUserID(userID string, limit, offset int) ([]models.AuditLog, error) {
+	args := m.Called(userID, limit, offset)
+	return args.Get(0).([]models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) FindByDepartmentID(departmentID string, limit, offset int) ([]models.AuditLog, error) {
+	args := m.Called(departmentID, limit, offset)
+	return args.Get(0).([]models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) FindByAction(action models.AuditAction, limit, offset int) ([]models.AuditLog, error) {
+	args := m.Called(action, limit, offset)
+	return args.Get(0).([]models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) FindByDateRange(startDate, endDate time.Time, limit, offset int) ([]models.AuditLog, error) {
+	args := m.Called(startDate, endDate, limit, offset)
+	return args.Get(0).([]models.AuditLog), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) Count(filter *models.AuditLogFilter) (int64, error) {
+	args := m.Called(filter)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) DeleteOlderThan(duration time.Duration) (int64, error) {
+	args := m.Called(duration)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockAuditLogRepository) DeleteOlderThanByAction(action models.AuditAction, duration time.Duration) (int64, error) {
+	args := m.Called(action, duration)
+	return args.Get(0).(int64), args.Error(1)
+}
