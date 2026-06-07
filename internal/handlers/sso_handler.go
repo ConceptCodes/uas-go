@@ -301,6 +301,7 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 	var tokenResult map[string]interface{}
 	var providerUserID, email string
+	emailVerified := false
 
 	if provider.ProviderType == models.IDPGithub {
 		tokenResult, err = h.ssoHelper.GenerateGitHubToken(data.Code, provider.ClientID, provider.ClientSecret.String(), redirectURI)
@@ -316,6 +317,7 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		providerUserID, email, err = h.ssoHelper.ExtractIdentity(userInfo, provider)
+		emailVerified = true
 	} else {
 		tokenResult, err = h.ssoHelper.ExchangeCodeForToken(provider, data.Code, codeVerifier, redirectURI)
 		if err != nil {
@@ -330,6 +332,9 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			if em, ok := claims["email"].(string); ok {
 				email = em
+			}
+			if ev, ok := claims["email_verified"].(bool); ok {
+				emailVerified = ev
 			}
 		}
 
@@ -363,11 +368,8 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user *models.UserModel
-	if email != "" {
-		user, err = h.userRepo.FindByEmail(email, departmentID)
-		if err != nil {
-			user = nil
-		}
+	if email != "" && emailVerified {
+		user, _ = h.userRepo.FindByEmail(email, departmentID)
 	}
 
 	if user == nil {
@@ -375,7 +377,7 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 		user = &models.UserModel{
 			ID:            userID,
 			Email:         email,
-			EmailVerified: email != "",
+			EmailVerified: emailVerified && email != "",
 		}
 		if err := h.userRepo.Create(user); err != nil {
 			h.responseHelper.SendErrorResponse(w, "Failed to create user", constants.InternalServerError, err)
@@ -386,7 +388,9 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 			Role:   models.User,
 			UserID: userID,
 		}
-		h.deptRoleRepo.Create(&userRole)
+		if err := h.deptRoleRepo.Create(&userRole); err != nil {
+			h.log.Error().Err(err).Str("user_id", userID).Str("department_id", departmentID).Msg("Failed to assign user role")
+		}
 	}
 
 	identity := &models.UserIdentity{
@@ -402,7 +406,9 @@ func (h *SsoHandler) CallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if refreshToken, ok := tokenResult["refresh_token"].(string); ok {
 		identity.RefreshToken = refreshToken
 	}
-	h.identityRepo.Create(identity)
+	if err := h.identityRepo.Create(identity); err != nil {
+		h.log.Error().Err(err).Str("user_id", user.ID).Msg("Failed to link SSO identity")
+	}
 
 	h.issueTokens(w, r, user, departmentID)
 }

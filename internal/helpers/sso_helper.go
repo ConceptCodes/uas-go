@@ -1,12 +1,16 @@
 package helpers
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rsa"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"strings"
@@ -172,33 +176,131 @@ func (h *SSOHelper) getDefaultUserInfoURL(provider *models.IdentityProvider) str
 }
 
 func (h *SSOHelper) VerifyIDToken(provider *models.IdentityProvider, idToken string) (map[string]interface{}, error) {
-	if provider.ProviderType == models.IDPGoogle || provider.ProviderType == models.IDPOIDC {
-		return h.verifyOIDCIDToken(provider, idToken)
+	if provider.JWKSURI == "" {
+		return nil, errors.New("ID token verification requires JWKSURI on the provider")
 	}
-	return nil, errors.New("ID token verification not supported for this provider type")
-}
 
-func (h *SSOHelper) verifyOIDCIDToken(provider *models.IdentityProvider, idToken string) (map[string]interface{}, error) {
-	token, err := jwt.Parse(idToken, func(t *jwt.Token) (interface{}, error) {
+	keys, err := h.fetchJWKS(provider.JWKSURI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
+	}
+
+	parsed, err := jwt.Parse(idToken, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
-		// In production, fetch and cache JWKS from provider.JWKSURI
-		// For now, we parse claims without signature verification
-		// since we trust the HTTPS exchange
-		return nil, nil
+		kid, _ := t.Header["kid"].(string)
+		for _, k := range keys {
+			if kid == "" || k.kid == kid {
+				return k.key, nil
+			}
+		}
+		return nil, errors.New("no matching key found in JWKS")
 	}, jwt.WithAudience(provider.ClientID), jwt.WithIssuer(provider.IssuerURL))
 
 	if err != nil {
 		return nil, fmt.Errorf("ID token verification failed: %w", err)
 	}
 
-	claims, ok := token.Claims.(jwt.MapClaims)
+	claims, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok {
 		return nil, errors.New("invalid ID token claims")
 	}
 
 	return claims, nil
+}
+
+type jwksKey struct {
+	kid string
+	key interface{}
+}
+
+func (h *SSOHelper) fetchJWKS(jwksURI string) ([]jwksKey, error) {
+	req, err := http.NewRequest("GET", jwksURI, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := h.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("JWKS endpoint returned HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	if err != nil {
+		return nil, err
+	}
+
+	var jwks struct {
+		Keys []struct {
+			Kty string   `json:"kty"`
+			Kid string   `json:"kid"`
+			Use string   `json:"use"`
+			N   string   `json:"n"`
+			E   string   `json:"e"`
+			X   string   `json:"x"`
+			Y   string   `json:"y"`
+			Crv string   `json:"crv"`
+		} `json:"keys"`
+	}
+	if err := json.Unmarshal(body, &jwks); err != nil {
+		return nil, err
+	}
+
+	var keys []jwksKey
+	for _, k := range jwks.Keys {
+		if k.Use != "" && k.Use != "sig" {
+			continue
+		}
+		switch k.Kty {
+		case "RSA":
+			nBytes, err := base64.RawURLEncoding.DecodeString(k.N)
+			if err != nil {
+				continue
+			}
+			eBytes, err := base64.RawURLEncoding.DecodeString(k.E)
+			if err != nil {
+				continue
+			}
+			ei := 0
+			for _, b := range eBytes {
+				ei = ei<<8 + int(b)
+			}
+			pub := &rsa.PublicKey{N: new(big.Int).SetBytes(nBytes), E: ei}
+			keys = append(keys, jwksKey{kid: k.Kid, key: pub})
+		case "EC":
+			xBytes, err := base64.RawURLEncoding.DecodeString(k.X)
+			if err != nil {
+				continue
+			}
+			yBytes, err := base64.RawURLEncoding.DecodeString(k.Y)
+			if err != nil {
+				continue
+			}
+			var curve elliptic.Curve
+			switch k.Crv {
+			case "P-256":
+				curve = elliptic.P256()
+			case "P-384":
+				curve = elliptic.P384()
+			case "P-521":
+				curve = elliptic.P521()
+			default:
+				continue
+			}
+			pub := &ecdsa.PublicKey{Curve: curve, X: new(big.Int).SetBytes(xBytes), Y: new(big.Int).SetBytes(yBytes)}
+			keys = append(keys, jwksKey{kid: k.Kid, key: pub})
+		}
+	}
+
+	if len(keys) == 0 {
+		return nil, errors.New("no usable keys found in JWKS")
+	}
+	return keys, nil
 }
 
 func (h *SSOHelper) ParseIDTokenUnverified(idToken string) (map[string]interface{}, error) {
@@ -273,9 +375,15 @@ func (h *SSOHelper) GenerateGitHubToken(code string, clientID, clientSecret, red
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub token exchange failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
 	var result map[string]interface{}
-	json.Unmarshal(body, &result)
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse GitHub token response: %w", err)
+	}
 	return result, nil
 }
 
