@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"uas/config"
@@ -113,6 +115,7 @@ func Run() {
 		userRepo,
 		authHelper,
 		mfaHelper,
+		encryptionHelper,
 		responseHelper,
 		validatorHelper,
 		log,
@@ -217,6 +220,8 @@ func Run() {
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpSendEndpoint, 3, "phone")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.OtpVerifyEndpoint, 5, "phone")
 	endpointRateLimitMiddleware.RegisterEndpoint(constants.MagicLinkSendEndpoint, 3, "email")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.MfaChallengeVerifyEndpoint, 10, "ip")
+	endpointRateLimitMiddleware.RegisterEndpoint(constants.MfaRecoverEndpoint, 5, "ip")
 
 	var AdminAccess = []models.Role{models.Admin}
 
@@ -301,9 +306,13 @@ func Run() {
 		return rbacMiddleware.Authorize(AdminAccessRoles, next)
 	})
 
-	tenantSub.HandleFunc(constants.WebhookDeliveriesEndpoint, webhookHandler.ListDeliveriesHandler).Methods(http.MethodGet)
-	tenantSub.HandleFunc(constants.WebhookDeliveryEndpoint, webhookHandler.GetDeliveryHandler).Methods(http.MethodGet)
-	tenantSub.HandleFunc(constants.WebhookRetryEndpoint, webhookHandler.RetryDeliveryHandler).Methods(http.MethodPost)
+	webhookDeliverySub := tenantSub.PathPrefix("/webhooks/deliveries").Subrouter()
+	webhookDeliverySub.HandleFunc("", webhookHandler.ListDeliveriesHandler).Methods(http.MethodGet)
+	webhookDeliverySub.HandleFunc("/{id}", webhookHandler.GetDeliveryHandler).Methods(http.MethodGet)
+	webhookDeliverySub.HandleFunc("/{id}/retry", webhookHandler.RetryDeliveryHandler).Methods(http.MethodPost)
+	webhookDeliverySub.Use(func(next http.Handler) http.Handler {
+		return rbacMiddleware.Authorize(AdminAccessRoles, next)
+	})
 
 	// Admin API — requires platform_admin or tenant_admin
 	adminSub := tenantSub.PathPrefix("/admin").Subrouter()
@@ -329,15 +338,25 @@ func Run() {
 		MaxHeaderBytes:    1 << 20,
 	}
 
-	log.Debug().Msgf(constants.StartMessage, port, config.AppConfig.Env)
-	err = srv.ListenAndServe()
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	if err != nil {
-		log.
-			Fatal().
-			Err(err).
-			Msg("Error while starting server")
+	go func() {
+		log.Debug().Msgf(constants.StartMessage, port, config.AppConfig.Env)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("Error while starting server")
+		}
+	}()
+
+	<-ctx.Done()
+	log.Info().Msg("Shutdown signal received, draining connections (15s grace period)...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Error().Err(err).Msg("Graceful shutdown failed")
 	}
+	log.Info().Msg("Server stopped")
 }
 
 func startAuditRetentionCleanup(retentionService *services.RetentionService, log *zerolog.Logger) {
