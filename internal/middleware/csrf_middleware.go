@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"uas/config"
@@ -39,7 +40,8 @@ func (m *CSRFMiddleware) Protect(next http.Handler) http.Handler {
 
 		if origin != "" {
 			for _, allowed := range allowedOrigins {
-				if origin == strings.TrimSpace(allowed) {
+				allowed = strings.TrimSpace(allowed)
+				if origin == allowed {
 					validOrigin = true
 					break
 				}
@@ -47,10 +49,15 @@ func (m *CSRFMiddleware) Protect(next http.Handler) http.Handler {
 		}
 
 		if !validOrigin && referer != "" {
-			for _, allowed := range allowedOrigins {
-				if strings.HasPrefix(referer, strings.TrimSpace(allowed)) {
-					validOrigin = true
-					break
+			parsedReferer, err := url.Parse(referer)
+			if err == nil {
+				refererOrigin := strings.ToLower(parsedReferer.Scheme) + "://" + strings.ToLower(parsedReferer.Host)
+				for _, allowed := range allowedOrigins {
+					allowed = strings.TrimSpace(strings.ToLower(allowed))
+					if refererOrigin == allowed {
+						validOrigin = true
+						break
+					}
 				}
 			}
 		}
