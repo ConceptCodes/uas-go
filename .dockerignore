@@ -1,11 +1,16 @@
 .git
 .gitignore
 .github
+.agents
+.opencode
 README.md
 .env
 .env.example
+.env.development
+.env.production
 Makefile
 docker-compose.yml
+Dockerfile
 *.md
 .vscode
 .idea
@@ -18,3 +23,4 @@ node_modules
 dist
 build
 vendor
+tmp

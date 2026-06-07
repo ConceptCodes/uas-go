@@ -1,8 +1,6 @@
 module uas
 
-go 1.23.0
-
-toolchain go1.23.5
+go 1.25.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
