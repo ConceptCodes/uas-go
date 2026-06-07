@@ -188,8 +188,4 @@ func (h *MfaHelper) AmrClaimForFactor(factorType string) string {
 	}
 }
 
-func (h *MfaHelper) CheckFactorBelongsToUser(factorID, userID, departmentID string, getRepo func(string, string) (*interface{}, error)) bool {
-	return true
-}
-
 const MfaTokenContextKey = "mfa_token"

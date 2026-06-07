@@ -24,6 +24,7 @@ func setupMfaHandler(t *testing.T) (*MfaHandler, *MockUserRepository, *MockMfaFa
 
 	config.AppConfig.MfaBackupCodeCount = 8
 	config.AppConfig.MfaIssuer = "UAS"
+	config.AppConfig.EncryptionKey = "0123456789abcdef0123456789abcdef"
 
 	log := newTestLogger()
 	userRepo := new(MockUserRepository)
@@ -33,6 +34,8 @@ func setupMfaHandler(t *testing.T) (*MfaHandler, *MockUserRepository, *MockMfaFa
 	validatorHelper := newTestValidatorHelper(&log, responseHelper)
 	authHelper := newTestAuthHelper(&log)
 	mfaHelper := newTestMfaHelper(&log)
+	encryptionHelper, err := helpers.NewEncryptionHelper(&log)
+	require.NoError(t, err)
 
 	handler := NewMfaHandler(
 		mfaFactorRepo,
@@ -40,6 +43,7 @@ func setupMfaHandler(t *testing.T) (*MfaHandler, *MockUserRepository, *MockMfaFa
 		userRepo,
 		authHelper,
 		mfaHelper,
+		encryptionHelper,
 		responseHelper,
 		validatorHelper,
 		&log,

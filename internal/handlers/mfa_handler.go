@@ -19,6 +19,7 @@ type MfaHandler struct {
 	userRepo        repository.UserRepository
 	authHelper      *helpers.AuthHelper
 	mfaHelper       *helpers.MfaHelper
+	encryptionHelper *helpers.EncryptionHelper
 	responseHelper  *helpers.ResponseHelper
 	validatorHelper *helpers.ValidatorHelper
 	log             *zerolog.Logger
@@ -30,19 +31,21 @@ func NewMfaHandler(
 	userRepo repository.UserRepository,
 	authHelper *helpers.AuthHelper,
 	mfaHelper *helpers.MfaHelper,
+	encryptionHelper *helpers.EncryptionHelper,
 	responseHelper *helpers.ResponseHelper,
 	validatorHelper *helpers.ValidatorHelper,
 	log *zerolog.Logger,
 ) *MfaHandler {
 	return &MfaHandler{
-		mfaFactorRepo:   mfaFactorRepo,
+		mfaFactorRepo:    mfaFactorRepo,
 		mfaChallengeRepo: mfaChallengeRepo,
-		userRepo:        userRepo,
-		authHelper:      authHelper,
-		mfaHelper:       mfaHelper,
-		responseHelper:  responseHelper,
-		validatorHelper: validatorHelper,
-		log:             log,
+		userRepo:         userRepo,
+		authHelper:       authHelper,
+		mfaHelper:        mfaHelper,
+		encryptionHelper: encryptionHelper,
+		responseHelper:   responseHelper,
+		validatorHelper:  validatorHelper,
+		log:              log,
 	}
 }
 
@@ -87,7 +90,13 @@ func (h *MfaHandler) EnrollHandler(w http.ResponseWriter, r *http.Request) {
 			h.responseHelper.SendErrorResponse(w, "Failed to generate TOTP secret", constants.InternalServerError, err)
 			return
 		}
-		factor.Secret = secret
+
+		encryptedSecret, err := h.encryptionHelper.Encrypt(secret)
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Failed to protect MFA secret", constants.InternalServerError, err)
+			return
+		}
+		factor.Secret = encryptedSecret
 
 		codes, err := h.mfaHelper.GenerateBackupCodes(config.AppConfig.MfaBackupCodeCount)
 		if err != nil {
@@ -120,8 +129,13 @@ func (h *MfaHandler) EnrollHandler(w http.ResponseWriter, r *http.Request) {
 			h.responseHelper.SendErrorResponse(w, "Phone number required for SMS factor", constants.BadRequest, nil)
 			return
 		}
-		factor.Secret = data.PhoneNumber
-		factor.Name = "SMS: " + data.PhoneNumber
+		encryptedPhone, err := h.encryptionHelper.Encrypt(data.PhoneNumber)
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Failed to protect SMS factor", constants.InternalServerError, err)
+			return
+		}
+		factor.Secret = encryptedPhone
+		factor.Name = "SMS: " + h.encryptionHelper.MaskPhone(data.PhoneNumber)
 
 		codes, _ := h.mfaHelper.GenerateBackupCodes(config.AppConfig.MfaBackupCodeCount)
 		hashedCodes := make([]string, len(codes))
@@ -183,7 +197,12 @@ func (h *MfaHandler) VerifyEnrollHandler(w http.ResponseWriter, r *http.Request)
 	var valid bool
 	switch factor.FactorType {
 	case models.MfaFactorTOTP:
-		valid = h.mfaHelper.ValidateTOTPCode(factor.Secret, data.Code)
+		secret, err := h.encryptionHelper.Decrypt(factor.Secret)
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Failed to read MFA factor", constants.InternalServerError, err)
+			return
+		}
+		valid = h.mfaHelper.ValidateTOTPCode(secret, data.Code)
 	case models.MfaFactorSMS:
 		otpKey := "mfa:sms:" + userID + ":" + data.FactorID
 		err := h.authHelper.ValidateOtpCode(otpKey, data.Code)
@@ -318,7 +337,12 @@ func (h *MfaHandler) ChallengeVerifyHandler(w http.ResponseWriter, r *http.Reque
 	var valid bool
 	switch factor.FactorType {
 	case models.MfaFactorTOTP:
-		valid = h.mfaHelper.ValidateTOTPCode(factor.Secret, data.Code)
+		secret, err := h.encryptionHelper.Decrypt(factor.Secret)
+		if err != nil {
+			h.responseHelper.SendErrorResponse(w, "Failed to read MFA factor", constants.InternalServerError, err)
+			return
+		}
+		valid = h.mfaHelper.ValidateTOTPCode(secret, data.Code)
 	case models.MfaFactorSMS:
 		otpKey := "mfa:sms:" + userID + ":" + factor.ID
 		err := h.authHelper.ValidateOtpCode(otpKey, data.Code)
@@ -383,6 +407,9 @@ func (h *MfaHandler) RecoverHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, factor := range factors {
+		if factor.LastUsedAt == nil {
+			continue
+		}
 		if factor.BackupCodes == "" {
 			continue
 		}
@@ -460,7 +487,7 @@ func NewMfaRequiredError() *models.AppError {
 	return &models.AppError{
 		Code:       constants.MFARequired,
 		Message:    "MFA verification required",
-		HTTPStatus: http.StatusTooManyRequests, // Using 429 to signal MFA needed, client checks code
+		HTTPStatus: http.StatusUnauthorized,
 		Timestamp:  time.Now(),
 	}
 }

@@ -137,10 +137,3 @@ func TestMfaValidateTOTPCodeInvalid(t *testing.T) {
 	valid := h.ValidateTOTPCode("JBSWY3DPEHPK3PXP", "000000")
 	assert.False(t, valid)
 }
-
-func TestCheckFactorBelongsToUser(t *testing.T) {
-	h := &MfaHelper{}
-
-	result := h.CheckFactorBelongsToUser("factor-1", "user-1", "dept-1", nil)
-	assert.True(t, result)
-}
