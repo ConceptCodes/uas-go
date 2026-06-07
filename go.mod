@@ -5,6 +5,8 @@ go 1.23.0
 toolchain go1.23.5
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/crewjam/saml v0.4.14
 	github.com/go-redis/redis_rate/v10 v10.0.1
 	github.com/go-sql-driver/mysql v1.7.0
@@ -23,7 +25,6 @@ require (
 )
 
 require (
-	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
 	github.com/beevik/etree v1.5.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
@@ -49,6 +50,8 @@ require (
 	github.com/prometheus/common v0.60.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/russellhaering/goxmldsig v1.4.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/net v0.43.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
