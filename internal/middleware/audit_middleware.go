@@ -56,25 +56,19 @@ func (m *AuditMiddleware) Log(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		// Create a response writer wrapper to capture response
 		wrapper := &auditResponseWriter{
 			ResponseWriter: w,
 			statusCode:     http.StatusOK,
-			body:           bytes.NewBuffer(nil),
 		}
 
-		// Process the request
 		next.ServeHTTP(wrapper, r)
 
-		// Skip audit logging for certain paths
 		if m.shouldSkipAudit(r) {
 			return
 		}
 
-		// Determine audit action and resource based on request
 		action, resource, severity := m.determineAuditAction(r, wrapper.statusCode)
 
-		// Create audit log entry
 		auditLog := &models.AuditLog{
 			ID:          uuid.New().String(),
 			Action:      action,
@@ -87,28 +81,26 @@ func (m *AuditMiddleware) Log(next http.Handler) http.Handler {
 			Timestamp:   start,
 		}
 
-		// Add context information
 		m.addContextInfo(auditLog, r)
 
-		// Add request metadata
 		metadata := make(map[string]interface{})
 		metadata["method"] = r.Method
-		metadata["path"] = r.URL.Path
+		metadata["path"] = sanitizePath(r.URL.Path)
 		metadata["query"] = sanitizeQueryString(r.URL.RawQuery)
 		metadata["userAgent"] = r.Header.Get("User-Agent")
 		metadata["responseTime"] = time.Since(start).Milliseconds()
 
-		if wrapper.statusCode >= 400 {
-			// Add error details for failed requests
-			if wrapper.body.Len() > 0 {
-				var errorResponse map[string]interface{}
-				if err := json.Unmarshal(wrapper.body.Bytes(), &errorResponse); err == nil {
-					metadata["error"] = errorResponse
-				}
+		if wrapper.statusCode >= 400 && wrapper.body != nil && wrapper.body.Len() > 0 {
+			bodyBytes := wrapper.body.Bytes()
+			if len(bodyBytes) > 2048 {
+				bodyBytes = bodyBytes[:2048]
+			}
+			var errorResponse map[string]interface{}
+			if err := json.Unmarshal(bodyBytes, &errorResponse); err == nil {
+				metadata["error"] = errorResponse
 			}
 		}
 
-		// Convert metadata to JSON string
 		if metadataBytes, err := json.Marshal(metadata); err == nil {
 			auditLog.Metadata = string(metadataBytes)
 		}
@@ -300,7 +292,52 @@ func sanitizeQueryString(rawQuery string) string {
 	return values.Encode()
 }
 
-// auditResponseWriter wraps http.ResponseWriter to capture status code and body
+var sensitivePathSegments = map[string]struct{}{
+	"reset-password":  {},
+	"verify-email":    {},
+	"verify-magic":    {},
+	"magic-link":      {},
+}
+
+func sanitizePath(path string) string {
+	if path == "" {
+		return ""
+	}
+	parts := strings.Split(path, "/")
+	for i, p := range parts {
+		if _, sensitive := sensitivePathSegments[strings.ToLower(p)]; sensitive && i+1 < len(parts) {
+			for j := i + 1; j < len(parts); j++ {
+				parts[j] = "REDACTED"
+			}
+			break
+		}
+		if len(p) >= 32 && isLikelyToken(p) {
+			parts[i] = "REDACTED"
+		}
+	}
+	return strings.Join(parts, "/")
+}
+
+func isLikelyToken(s string) bool {
+	if len(s) < 16 {
+		return false
+	}
+	hex, alnum := 0, 0
+	for _, c := range s {
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+			hex++
+		}
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') {
+			alnum++
+		} else {
+			return false
+		}
+	}
+	return hex == alnum
+}
+
+// auditResponseWriter wraps http.ResponseWriter to capture status code and body.
+// The body buffer is allocated lazily when first written to.
 type auditResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
@@ -308,7 +345,12 @@ type auditResponseWriter struct {
 }
 
 func (w *auditResponseWriter) Write(data []byte) (int, error) {
-	_, _ = w.body.Write(data)
+	if w.statusCode >= 400 && w.body == nil {
+		w.body = bytes.NewBuffer(nil)
+	}
+	if w.body != nil {
+		_, _ = w.body.Write(data)
+	}
 	return w.ResponseWriter.Write(data)
 }
 
